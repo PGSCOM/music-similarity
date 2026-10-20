@@ -1,0 +1,9 @@
+torch
+torchaudio
+torchvision  # muq la importa; instálala del mismo índice que torch o falla "torchvision::nms does not exist"
+muq
+transformers<5  # muq falla con transformers 5 (_attn_implementation)
+librosa
+duckdb
+pyarrow
+huggingface_hub  # hf_hub_download en buscar.py (la versión 0.x que admite transformers<5)

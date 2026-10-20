@@ -1,0 +1,5 @@
+*.parquet
+work/
+embeddings/
+venv/
+__pycache__/
