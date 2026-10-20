@@ -7,7 +7,7 @@ Busca canciones parecidas con los embeddings de MuQ-MuLan (similitud = producto 
   python buscar.py --audio mi_clip.mp3 -k 20          # por un audio cualquiera (carga el modelo)
 
 Datos: tracks.parquet + embeddings.parquet de --datos (carpeta local) o, por defecto, del dataset
-público de Hugging Face. También se importa como módulo (lo usa la demo, space/app.py).
+público de Hugging Face. También se importa como módulo (lo usa preparar_web.py).
 """
 import argparse
 import pathlib

@@ -3,3 +3,6 @@ work/
 embeddings/
 venv/
 __pycache__/
+web/*.bin
+web/meta.json
+web/modelo/
