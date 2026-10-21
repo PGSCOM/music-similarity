@@ -40,7 +40,7 @@ h1 span { color: var(--faint); }
 .rec { width: 9px; height: 9px; border-radius: 50%; background: #d0704f; display: inline-block; }
 .recording .rec { background: var(--hi); }
 body.dropping main { background: var(--raise); }
-.examples button { color: var(--ink); text-decoration: underline; text-decoration-color: var(--faint); text-underline-offset: 3px; }
+.hint a, .examples button { color: var(--ink); text-decoration: underline; text-decoration-color: var(--faint); text-underline-offset: 3px; }
 .examples button:hover { text-decoration-color: var(--hi); color: var(--hi); }
 
 #status { color: var(--dim); font-size: 13px; min-height: 1.45em; }
@@ -63,15 +63,25 @@ ol { list-style: none; margin: 0; padding: 0; }
          margin-right: 8px; vertical-align: 1px; color: var(--faint); }
 li.active .play { color: var(--hi); }
 li.active.playing .play { border: 0; width: 7px; height: 9px; border-left: 2.5px solid var(--hi); border-right: 2.5px solid var(--hi); }
+.head { display: flex; align-items: flex-start; gap: 10px; }
+#origin { display: grid; place-items: center start; width: 24px; height: 30px; flex: none; color: var(--dim); }
+#origin[hidden] { display: none; }
+#origin:hover, #origin[aria-pressed="true"] { color: var(--hi); }
+#origin .play { margin: 0; color: inherit; border-left-width: 14px; border-top-width: 9px; border-bottom-width: 9px; }
+#origin[aria-pressed="true"] .play { border: 0; width: 14px; height: 18px; border-left: 5px solid; border-right: 5px solid; }
 
 footer { margin-top: auto; color: var(--faint); font-size: 12px; padding-top: 20px; }
 footer a { color: var(--dim); }
 
-#map-area { position: relative; height: 100vh; overflow: hidden; }
+#map-area { position: relative; height: 100vh; overflow: hidden; touch-action: none; }
 #map-area canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
 #overlay { pointer-events: none; }
 #legend { position: absolute; right: 28px; bottom: 22px; max-width: 360px; text-align: right; font-size: 12px; line-height: 1.7; pointer-events: none; }
-#legend span { margin-left: 10px; white-space: nowrap; }
+#legend button { margin-left: 2px; padding: 0 4px; white-space: nowrap; pointer-events: auto; transition: opacity .15s, filter .15s; }
+#legend button:hover { filter: brightness(1.3); }
+#legend.on button { opacity: .5; }
+#legend.on button:hover { opacity: .8; }
+#legend.on button[aria-pressed="true"] { opacity: 1; }
 #tooltip { position: absolute; pointer-events: none; background: var(--raise2); color: var(--ink); font-size: 13px; padding: 5px 9px; border-radius: 7px;
            white-space: nowrap; transform: translate(12px, -50%); display: none; max-width: min(340px, 48%); overflow: hidden; text-overflow: ellipsis; }
 #tooltip small { color: var(--dim); }
@@ -103,7 +113,7 @@ footer a { color: var(--dim); }
     </div>
     <p class="hint">Type a song from the catalogue, upload an audio file (or drop it here), or use an audio clip from
       <a target="_blank" href="https://huggingface.co/datasets/benjamin-paine/free-music-archive-large">FMA</a> and see what it matches.
-      Only the first 30 s are used. You can also click any point on the map.</p>
+      Only the first 30 s are used. You can also click any point on the map. Scroll or pinch to zoom, drag to move, double-click to reset.</p>
     <p class="hint examples">Try:
       <button data-c="Jahzzar - Siesta">Jahzzar · Siesta</button>,
       <button data-c="Broke For Free - Night Owl">Broke For Free · Night Owl</button>,
@@ -112,7 +122,7 @@ footer a { color: var(--dim); }
   </div>
   <div id="status" aria-live="polite"></div>
   <section>
-    <h2 id="result-title"></h2>
+    <div class="head"><button id="origin" hidden aria-label="Play this song" aria-pressed="false"><span class="play"></span></button><h2 id="result-title"></h2></div>
     <ol id="results"></ol>
   </section>
   <footer>
@@ -125,7 +135,7 @@ footer a { color: var(--dim); }
   <canvas id="map" aria-hidden="true"></canvas>
   <canvas id="overlay" aria-hidden="true"></canvas>
   <div id="tooltip"></div>
-  <div id="legend" aria-hidden="true"></div>
+  <div id="legend" role="group" aria-label="Filter the map by genre"></div>
   <div id="loading">loading the map…</div>
 </div>
 <audio id="audio" preload="none"></audio>
@@ -147,6 +157,7 @@ const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 let meta, XY, E, N, D, rows, scale;          // data
 let view = null;                              // map -> pixels transform
+let zoom = { k: 1, u: 0.5, v: 0.5 };          // zoom factor and the map point (0..1) at the canvas center
 let result = null;                            // {origin: [x, y], list: [{i, s}], active}
 let grid;                                     // spatial index for the mouse
 
@@ -189,15 +200,21 @@ function colorRGB(hex) { return [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2
 
 function drawMap() {
   const c = $("#map"), r = c.getBoundingClientRect(), dpr = Math.min(devicePixelRatio || 1, 2);
-  const W = c.width = $("#overlay").width = Math.round(r.width * dpr), H = c.height = $("#overlay").height = Math.round(r.height * dpr);
-  const side = Math.min(W, H) * 0.86;
-  view = { dpr, side, x0: (W - side) / 2, y0: (H - side) / 2 };
+  const W = Math.round(r.width * dpr), H = Math.round(r.height * dpr);
+  if (c.width !== W || c.height !== H) c.width = $("#overlay").width = W, c.height = $("#overlay").height = H;  // only on resize
+  const side = Math.min(W, H) * 0.86 * zoom.k;
+  view = { dpr, side, x0: W / 2 - zoom.u * side, y0: H / 2 - zoom.v * side };
   const acc = new Float32Array(W * H * 3), cols = meta.genres.map((g) => colorRGB(COLOR[g] || COLOR["-"]));
+  const rad = Math.min(3, Math.floor(Math.sqrt(zoom.k) - 1)), splat = [];  // zoomed in, each song becomes a small dot
+  for (let dy = -rad; dy <= rad; dy++) for (let dx = -rad; dx <= rad; dx++) if (dx * dx + dy * dy <= rad * rad + rad) splat.push([dx, dy]);
   for (let i = 0; i < N; i++) {
-    const [x, y] = point(i), px = x | 0, py = y | 0;
+    const [x, y] = point(i);
+    for (const [dx, dy] of splat) {
+    const px = (x | 0) + dx, py = (y | 0) + dy;
     if (px < 0 || py < 0 || px >= W || py >= H) continue;
-    const o = (py * W + px) * 3, col = cols[rows[i][2]];
-    acc[o] += col[0]; acc[o + 1] += col[1]; acc[o + 2] += col[2];
+    const o = (py * W + px) * 3, col = cols[rows[i][2]], w = only < 0 || rows[i][2] === only ? 1 : 0.06;
+    acc[o] += w * col[0]; acc[o + 1] += w * col[1]; acc[o + 2] += w * col[2];
+    }
   }
   const ctx = c.getContext("2d"), img = ctx.createImageData(W, H), d = img.data, k = 0.75 / dpr;
   const bg = colorRGB("#120d0c");
@@ -220,11 +237,13 @@ function buildIndex() {  // 96x96 grid over the normalized coordinates
 }
 
 function nearest(px, py, radius) {  // px, py in canvas pixels
-  const u = (px - view.x0) / view.side, v = (py - view.y0) / view.side, cu = u * 96 | 0, cv = v * 96 | 0;
+  const u = (px - view.x0) / view.side, v = (py - view.y0) / view.side, cu = Math.floor(u * 96), cv = Math.floor(v * 96);
+  const n = Math.ceil(radius * 96 / view.side);  // cells the radius can reach at this zoom
   let best = -1, d2 = radius * radius;
-  for (let a = cu - 1; a <= cu + 1; a++) for (let b = cv - 1; b <= cv + 1; b++) {
+  for (let a = Math.max(0, cu - n); a <= Math.min(95, cu + n); a++) for (let b = Math.max(0, cv - n); b <= Math.min(95, cv + n); b++) {
     if (a < 0 || b < 0 || a > 95 || b > 95) continue;
     for (const i of grid[a * 96 + b]) {
+      if (only >= 0 && rows[i][2] !== only) continue;
       const [x, y] = point(i), dd = (x - px) ** 2 + (y - py) ** 2;
       if (dd < d2) { d2 = dd; best = i; }
     }
@@ -236,16 +255,30 @@ function legend() {
   const n = new Array(meta.genres.length).fill(0);
   for (const r of rows) n[r[2]]++;
   $("#legend").innerHTML = meta.genres.map((g, i) => [g, n[i]]).filter(([g]) => g !== "-").sort((a, b) => b[1] - a[1])
-    .map(([g]) => `<span style="color:${COLOR[g]}">${g}</span>`).join(" ");
+    .map(([g, c]) => `<button data-g="${meta.genres.indexOf(g)}" aria-pressed="false" title="${c.toLocaleString("en")} songs" style="color:${COLOR[g]}">${g}</button>`).join(" ");
 }
 
+let only = -1;  // genre index highlighted from the legend, -1 = all
+function setGenre(g) {
+  only = g;
+  $("#legend").classList.toggle("on", g >= 0);
+  for (const b of $("#legend").children) b.setAttribute("aria-pressed", +b.dataset.g === g);
+  tip.style.display = "none";
+  drawMap();
+}
+$("#legend").addEventListener("click", (e) => {
+  e.stopPropagation();  // not a click on the map
+  const b = e.target.closest("button"); if (b) setGenre(+b.dataset.g === only ? -1 : +b.dataset.g);
+});
+addEventListener("keydown", (e) => { if (e.key === "Escape" && only >= 0 && e.target !== $("#q")) setGenre(-1); });
+
 // ---------- results layer: threads from the query ----------
-let t0 = 0;
+let t0 = 0, ovRaf = 0;
 function drawOverlay(now = performance.now()) {
   const c = $("#overlay"), ctx = c.getContext("2d");
   ctx.clearRect(0, 0, c.width, c.height);
   if (!result || !view) return;
-  const dpr = view.dpr, [ox, oy] = result.origin, progress = reduced ? 1 : Math.min(1, (now - t0) / 700);
+  const dpr = view.dpr, ox = view.x0 + result.origin[0] * view.side, oy = view.y0 + result.origin[1] * view.side, progress = reduced ? 1 : Math.min(1, (now - t0) / 700);
   const eased = 1 - (1 - progress) ** 3;
   ctx.fillStyle = "rgba(18,13,12,.55)"; ctx.fillRect(0, 0, c.width, c.height);  // the nebula fades out and only the threads are left
   ctx.lineCap = "round";
@@ -272,7 +305,12 @@ function drawOverlay(now = performance.now()) {
   });
   ctx.fillStyle = "#f1e6d8"; ctx.strokeStyle = "#120d0c"; ctx.lineWidth = 3 * dpr;
   ctx.beginPath(); ctx.arc(ox, oy, 5 * dpr, 0, 7); ctx.stroke(); ctx.fill();
-  if (progress < 1 || isPlaying()) requestAnimationFrame(drawOverlay);
+  if (result.active === ORIGIN && progress === 1) {
+    const au = $("#audio"), p = au.duration ? au.currentTime / au.duration : 0;
+    ctx.strokeStyle = "rgba(255,216,166,.95)"; ctx.lineWidth = 1.5 * dpr; ctx.beginPath();
+    ctx.arc(ox, oy, 10 * dpr, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (isPlaying() ? p : 1)); ctx.stroke();
+  }
+  if ((progress < 1 || isPlaying()) && !ovRaf) ovRaf = requestAnimationFrame((t) => { ovRaf = 0; drawOverlay(t); });  // one loop, even when the map redraws
 }
 const isPlaying = () => !$("#audio").paused;
 const genre = (g) => meta.genres[g] === "-" ? "" : " · " + meta.genres[g];
@@ -291,8 +329,9 @@ function neighbors(q, exclude = -1) {  // q: Float32Array(D) already scaled like
   return top;
 }
 
-function show(title, list, origin) {
-  result = { list, origin, active: -1 };
+function show(title, list, origin, self = -1) {  // self: dataset row of the query song, -1 if it is not in the catalogue
+  result = { list, origin: [(origin[0] - view.x0) / view.side, (origin[1] - view.y0) / view.side], active: -1, self };  // origin kept in map coords so it follows the zoom
+  $("#origin").hidden = self < 0;
   $("#result-title").textContent = title;
   $("#results").innerHTML = list.map(({ i, s }, n) => {
     const [artist, name, g] = rows[i];
@@ -310,7 +349,7 @@ function bySong(i) {
   const q = new Float32Array(D);
   for (let j = 0; j < D; j++) q[j] = E[i * D + j] / (scale * scale);
   const [artist, name] = rows[i];
-  show(`Similar to ${name}`, neighbors(q, i), point(i));
+  show(`Similar to ${name}`, neighbors(q, i), point(i), i);
   $("#q").value = `${artist} - ${name}`;
 }
 
@@ -409,23 +448,25 @@ $("#record").addEventListener("click", async () => {
 });
 
 // ---------- audio ----------
-const urls = new Map();
-async function play(n) {
+const urls = new Map(), ORIGIN = -2;
+async function play(n) {  // n: index in result.list, or ORIGIN for the query song
   const au = $("#audio"), lis = [...$("#results").children];
   if (result.active === n && au.src) { au.paused ? au.play() : au.pause(); return; }
   result.active = n;
   lis.forEach((li, k) => li.classList.toggle("active", k === n));
   requestAnimationFrame(drawOverlay);
-  const row = rows[result.list[n].i][4];
+  const row = rows[n === ORIGIN ? result.self : result.list[n].i][4];
   try {
     if (!urls.has(row)) urls.set(row, (await (await fetch(MIRROR + row)).json()).rows[0].row.audio[0].src);
     if (result.active !== n) return;
-    au.src = urls.get(row); await au.play();
+    au.src = urls.get(row); await au.play(); setStatus("");
   } catch (e) { console.error(e); setStatus("Could not load the audio of this song."); }
 }
 for (const ev of ["play", "pause", "ended"]) $("#audio").addEventListener(ev, () => {
   $("#results .active")?.classList.toggle("playing", isPlaying()); requestAnimationFrame(drawOverlay);
+  $("#origin").setAttribute("aria-pressed", result?.active === ORIGIN && isPlaying());
 });
+$("#origin").addEventListener("click", () => play(ORIGIN));
 
 // ---------- interface ----------
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
@@ -492,7 +533,51 @@ mapArea.addEventListener("pointermove", (e) => {
   tip.style.transform = right ? "translate(calc(-100% - 12px), -50%)" : "translate(12px, -50%)";
 });
 mapArea.addEventListener("pointerleave", () => (tip.style.display = "none"));
-mapArea.addEventListener("click", (e) => { const i = underPointer(e); if (i >= 0) bySong(i); });
+mapArea.addEventListener("click", (e) => { if (dragged) return; const i = underPointer(e); if (i >= 0) bySong(i); });
+
+// ---------- zoom and pan ----------
+let raf = 0, dragged = false;
+const ptrs = new Map();
+const redraw = () => raf ||= requestAnimationFrame(() => { raf = 0; drawMap(); });
+function zoomAt(cx, cy, f, dx = 0, dy = 0) {  // cx, cy in css pixels relative to the map; f: zoom factor; dx, dy: pan in css pixels
+  if (!view) return;
+  const x = cx * view.dpr, y = cy * view.dpr, W = $("#map").width, H = $("#map").height;
+  const mu = (x - view.x0) / view.side, mv = (y - view.y0) / view.side;
+  const k = Math.min(40, Math.max(1, zoom.k * f)), side = view.side * k / zoom.k;
+  zoom = k === 1 ? { k, u: 0.5, v: 0.5 } : { k, u: Math.min(1, Math.max(0, (W / 2 - (x + dx * view.dpr - mu * side)) / side)),
+                                            v: Math.min(1, Math.max(0, (H / 2 - (y + dy * view.dpr - mv * side)) / side)) };
+  view = { ...view, side, x0: W / 2 - zoom.u * side, y0: H / 2 - zoom.v * side };  // so the next event in this frame sees it
+  tip.style.display = "none"; redraw();
+}
+function resetZoom() { zoom = { k: 1, u: 0.5, v: 0.5 }; if (meta) redraw(); }
+const local = (e) => { const r = mapArea.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+mapArea.addEventListener("wheel", (e) => {
+  e.preventDefault();
+  const dy = e.deltaY * (e.deltaMode === 1 ? 16 : 1);
+  zoomAt(...local(e), Math.exp(-dy * (e.ctrlKey ? 0.01 : 0.002)));
+}, { passive: false });
+mapArea.addEventListener("pointerdown", (e) => {
+  if (ptrs.size === 0) dragged = false;
+  ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY });
+  mapArea.setPointerCapture(e.pointerId);
+});
+mapArea.addEventListener("pointermove", (e) => {
+  const p = ptrs.get(e.pointerId);
+  if (!p) return;
+  if (Math.hypot(e.clientX - p.x0, e.clientY - p.y0) > 5 || ptrs.size > 1) dragged = true;
+  if (!dragged) return;
+  const [a, b] = ptrs.values(), r = mapArea.getBoundingClientRect();
+  if (ptrs.size === 1) zoomAt(e.clientX - r.left, e.clientY - r.top, 1, e.clientX - p.x, e.clientY - p.y);
+  else {  // pinch: scale by the change in finger distance, around the midpoint, and follow the midpoint
+    const o = b === p ? a : b, d0 = Math.hypot(p.x - o.x, p.y - o.y), d1 = Math.hypot(e.clientX - o.x, e.clientY - o.y);
+    zoomAt((p.x + o.x) / 2 - r.left, (p.y + o.y) / 2 - r.top, d0 ? d1 / d0 : 1, (e.clientX - p.x) / 2, (e.clientY - p.y) / 2);
+  }
+  p.x = e.clientX; p.y = e.clientY;
+  mapArea.style.cursor = "grabbing";
+});
+for (const ev of ["pointerup", "pointercancel"]) mapArea.addEventListener(ev, (e) => ptrs.delete(e.pointerId));
+mapArea.addEventListener("dblclick", resetZoom);
+addEventListener("keydown", (e) => { if (e.key === "Escape" && !e.target.closest("input, textarea")) resetZoom(); });
 
 let tr; addEventListener("resize", () => { clearTimeout(tr); tip.style.display = "none"; tr = setTimeout(() => meta && drawMap(), 150); });
 
