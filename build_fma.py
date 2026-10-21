@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """
-Dataset público de ejemplo: Free Music Archive (FMA, https://github.com/mdeff/fma) con la MISMA
-estructura que el catálogo privado del proyecto, para poder publicarlo.
+Public example dataset: Free Music Archive (FMA, https://github.com/mdeff/fma) with the SAME
+structure as the private catalogue of the project, so that it can be published.
 
-  venv/bin/python publico/build_fma.py   # -> publico/tracks.parquet (106.574 canciones)
+  venv/bin/python build_fma.py   # -> tracks.parquet (106,574 songs)
 
-Equivalencias con un catálogo comercial: popularity = escuchas en FMA, preview_url = fila del clip de 30 s en la
-réplica pública de fma_large en Hugging Face (`hf://datasets/.../train-00000-of-00171.parquet#17`,
-lo lee embed.py en streaming; NULL si la réplica no la tiene), genres = géneros de FMA (con sus padres). Los géneros
-grandes salen de las mismas MACRO_RULES. Columnas extra: `license` (licencia CC de cada canción) y
-`audio_row` (fila global en la réplica: el clip se puede pedir a la API datasets-server de HF).
-Metadatos de FMA: CC BY 4.0. Audio: la licencia que eligió cada artista (columna `license`).
+Equivalences with a commercial catalogue: popularity = FMA play count, preview_url = row of the
+30 s clip in the public mirror of fma_large on Hugging Face (`hf://datasets/.../train-00000-of-00171.parquet#17`,
+read by embed.py in streaming; NULL when the mirror does not have it), genres = FMA genres (with their
+parents). The macro genres come from the same MACRO_RULES. Extra columns: `license` (the CC license of
+each song) and `audio_row` (global row in the mirror: the clip can be fetched from the HF datasets-server API).
+FMA metadata: CC BY 4.0. Audio: the license chosen by each artist (column `license`).
 """
 import csv
 import io
@@ -22,41 +22,41 @@ import zipfile
 import duckdb
 
 HERE = pathlib.Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE.parent))  # generos.py: junto a este script (repo) o un nivel arriba (bucket)
-from generos import MACRO_RULES  # noqa: E402
+sys.path.insert(0, str(HERE.parent))  # genres.py: next to this script (repo) or one level up (bucket)
+from genres import MACRO_RULES  # noqa: E402
 
 URL = "https://os.unil.cloud.switch.ch/fma/fma_metadata.zip"
 WORK = HERE / "work"
 OUT = HERE / "tracks.parquet"
-# Réplica de fma_large con el audio dentro (Parquet, 171 ficheros). Fijada a un commit para que las
-# referencias #fila no cambien.
+# Mirror of fma_large with the audio inside (Parquet, 171 files). Pinned to a commit so that the
+# #row references never change.
 MIRROR = ("hf://datasets/benjamin-paine/free-music-archive-large@d4cb3e133a7c5a007ddd20458aa30aef8968cf27"
           "/data/*.parquet")
 
 WORK.mkdir(exist_ok=True)
 zpath = WORK / "fma_metadata.zip"
 if not zpath.exists():
-    print("descargando fma_metadata.zip (342 MB) ...", flush=True)
+    print("downloading fma_metadata.zip (342 MB) ...", flush=True)
     urllib.request.urlretrieve(URL, zpath)
 with zipfile.ZipFile(zpath) as z:
     for f in ("tracks.csv", "genres.csv", "raw_tracks.csv"):
         (WORK / f).write_bytes(z.read(f"fma_metadata/{f}"))
 
-# tracks.csv tiene 3 filas de cabecera: (album|artist|set|track) + (campo) + track_id.
+# tracks.csv has 3 header rows: (album|artist|set|track) + (field) + track_id.
 with open(WORK / "tracks.csv", newline="") as f:
     top, sub = next(csv.reader(f)), next(csv.reader(io.StringIO(f.readline())))
-cols = ["track_id"] + [f"{a}_{b}" for a, b in zip(top[1:], sub[1:])]
+    cols = ["track_id"] + [f"{a}_{b}" for a, b in zip(top[1:], sub[1:])]
 
 con = duckdb.connect()
 con.execute(f"""CREATE TABLE raw AS FROM read_csv('{WORK / 'tracks.csv'}', skip=3, header=false,
                 all_varchar=true, names={cols})""")
 con.execute(f"CREATE TABLE gen AS FROM read_csv('{WORK / 'genres.csv'}')")
 
-# Fila de la réplica de cada canción. Leer solo las columnas de texto de la réplica tarda ~2 min:
-# se guarda en work/mirror.parquet.
+# Row of the mirror for each song. Reading only the text columns of the mirror takes ~2 min:
+# it is cached in work/mirror.parquet.
 mirror = WORK / "mirror.parquet"
 if not mirror.exists():
-    print("leyendo el índice de la réplica de fma_large ...", flush=True)
+    print("reading the index of the fma_large mirror ...", flush=True)
     con.execute(f"""COPY (SELECT filename || '#' || file_row_number AS preview_url, url, title, artist, listens
                         FROM read_parquet('{MIRROR}', filename=true, file_row_number=true)) TO '{mirror}'""")
 con.execute(f"""
@@ -69,7 +69,7 @@ con.execute(f"""
                 FROM read_csv('{WORK / 'raw_tracks.csv'}')),
          by_url AS (SELECT rt.track_id, any_value((m.preview_url, m.audio_row)) AS a
                     FROM m JOIN rt USING (u) WHERE u <> '' GROUP BY 1),
-         -- ~1.000 filas de la réplica no tienen url: por (título, artista, escuchas), solo si es única.
+         -- ~1.000 rows of the mirror have no url: matched by (title, artist, plays), only if unique.
          by_meta AS (SELECT r.track_id, any_value((m.preview_url, m.audio_row)) AS a
                      FROM m JOIN raw r ON m.title = r.track_title AND m.artist = r.artist_name
                                       AND m.listens = r.track_listens::BIGINT
@@ -80,7 +80,7 @@ con.execute("CREATE TABLE rules (prio INT, macro_genre TEXT, rx TEXT)")
 con.executemany("INSERT INTO rules VALUES (?, ?, ?)", [(i, m, rx) for i, (m, rx) in enumerate(MACRO_RULES)])
 con.execute("""
     CREATE TABLE t AS
-    WITH g AS (  -- géneros de cada canción, en minúsculas como los de Spotify (hip-hop -> hip hop)
+    WITH g AS (  -- genres of each song, lowercased like the Spotify ones (hip-hop -> hip hop)
       SELECT r.track_id, list(lower(replace(gen.title, '-', ' ')) ORDER BY gen."#tracks" DESC) AS genres
       FROM (SELECT track_id, unnest(string_split(trim(track_genres_all, '[]'), ', ')) AS gid FROM raw) r
       JOIN gen ON gen.genre_id::VARCHAR = r.gid GROUP BY 1
@@ -88,7 +88,7 @@ con.execute("""
       SELECT g.genre, arg_min(r.macro_genre, r.prio) AS macro_genre, min(r.prio) AS prio
       FROM (SELECT DISTINCT unnest(genres) AS genre FROM g) g
       JOIN rules r ON regexp_matches(g.genre, r.rx) GROUP BY 1
-    ), tm AS (   -- mismo criterio que el catálogo privado: el género grande que más se repite
+    ), tm AS (   # same criterion as the private catalogue: the macro genre that repeats the most
       SELECT track_id, list(macro_genre ORDER BY n DESC, prio) AS macro_genres FROM (
         SELECT x.track_id, gm.macro_genre, count(*) AS n, min(gm.prio) AS prio
         FROM (SELECT track_id, unnest(genres) AS genre FROM g) x JOIN gm USING (genre) GROUP BY 1, 2)
@@ -114,7 +114,7 @@ con.execute(f"""COPY (SELECT * EXCLUDE (license, audio_row), CASE WHEN macro_gen
 for f in ("tracks.csv", "genres.csv", "raw_tracks.csv"):
     (WORK / f).unlink()
 
-print(con.sql(f"""SELECT count(*) AS canciones, count(macro_genre) AS con_genero, count(preview_url) AS con_audio,
-                        count(DISTINCT preview_url) AS audios_distintos FROM '{OUT}'"""))
-print(con.sql(f"SELECT macro_genre, count(*) AS canciones, max(popularity) AS max_escuchas FROM '{OUT}' GROUP BY 1 ORDER BY 2 DESC"))
+print(con.sql(f"""SELECT count(*) AS songs, count(macro_genre) AS with_genre, count(preview_url) AS with_audio,
+                        count(DISTINCT preview_url) AS distinct_audios FROM '{OUT}'"""))
+print(con.sql(f"SELECT macro_genre, count(*) AS songs, max(popularity) AS max_plays FROM '{OUT}' GROUP BY 1 ORDER BY 2 DESC"))
 print(con.sql(f"SELECT license, count(*) AS n FROM '{OUT}' GROUP BY 1 ORDER BY 2 DESC LIMIT 8"))

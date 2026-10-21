@@ -1,5 +1,5 @@
 ---
-title: Suena a…
+title: MusicSearcher
 emoji: 🎧
 colorFrom: gray
 colorTo: yellow
@@ -11,10 +11,10 @@ models:
 datasets:
   - PGSCOM/fma-muq-mulan
   - benjamin-paine/free-music-archive-large
-short_description: 104.921 canciones en un mapa; busca con tu audio
+short_description: 104,921 songs on a map; search with your own audio
 ---
 
-Demo de [music-similarity](https://github.com/PGSCOM/music-similarity). Todo corre en el navegador:
-la búsqueda es un producto escalar contra 104.921 vectores (int8), y tu audio pasa por la parte de
-audio de MuQ-MuLan exportada a ONNX (WebGPU si está disponible, si no WebAssembly).
-Datos: `python preparar_web.py`. Modelo: `python exportar_web.py web/modelo`.
+Demo of [music-similarity](https://github.com/PGSCOM/music-similarity). Everything runs in the
+browser: the search is a dot product against 104,921 vectors (int8), and your audio goes through the
+audio part of MuQ-MuLan exported to ONNX (WebGPU if available, WebAssembly otherwise).
+Data: `python prepare_web.py`. Model: `python export_web.py web/model`.

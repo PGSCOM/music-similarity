@@ -1,10 +1,11 @@
 <!doctype html>
-<html lang="es">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Suena a… · buscador de canciones parecidas</title>
-<meta name="description" content="104.921 canciones del Free Music Archive en un mapa. Busca por canción o con tu propio audio; el modelo corre en tu navegador.">
+<title>Sounds like… · find similar songs</title>
+<meta name="description" content="104,921 songs from the Free Music Archive on a map. Search by song or with your own audio; the model runs in your browser.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23120d0c'/%3E%3Ccircle cx='16' cy='16' r='8' fill='%23ffd8a6'/%3E%3C/svg%3E">
 <style>
 @font-face { font-family: Tanker; src: url(tanker.woff2) format("woff2"); font-display: swap; }
 :root {
@@ -22,266 +23,267 @@ main { height: 100vh; overflow-y: auto; scrollbar-width: thin; scrollbar-color: 
 h1 { font: 400 76px/0.86 Tanker, Impact, sans-serif; letter-spacing: 0.01em; margin: 0; text-transform: uppercase; }
 h1 span { color: var(--faint); }
 
-.campo { position: relative; }
+.field { position: relative; }
 #q { width: 100%; font: 400 22px/1.2 system-ui, sans-serif; color: var(--ink); background: var(--raise); border: 0; border-radius: 12px;
      padding: 16px 18px; box-shadow: inset 0 1px 0 rgba(255, 230, 200, .06); }
 #q::placeholder { color: var(--faint); }
 #q:focus { outline: none; background: var(--raise2); }
-#sugerencias { list-style: none; margin: 6px 0 0; padding: 6px; background: var(--raise2); border-radius: 12px; position: absolute; left: 0; right: 0; z-index: 3; }
-#sugerencias:empty { display: none; }
-#sugerencias li { padding: 8px 12px; border-radius: 8px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#sugerencias li[aria-selected="true"], #sugerencias li:hover { background: rgba(255, 216, 166, .09); }
-#sugerencias small { color: var(--dim); }
-.ayuda { color: var(--dim); margin: 10px 2px 0; }
-.acciones { display: flex; gap: 8px; margin-top: 10px; }
-.accion { background: var(--raise); border-radius: 10px; padding: 10px 14px; display: inline-flex; align-items: center; gap: 8px; }
-.accion:hover { background: var(--raise2); }
+#suggestions { list-style: none; margin: 6px 0 0; padding: 6px; background: var(--raise2); border-radius: 12px; position: absolute; left: 0; right: 0; z-index: 3; }
+#suggestions:empty { display: none; }
+#suggestions li { padding: 8px 12px; border-radius: 8px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#suggestions li[aria-selected="true"], #suggestions li:hover { background: rgba(255, 216, 166, .09); }
+#suggestions small { color: var(--dim); }
+.hint { color: var(--dim); margin: 10px 2px 0; }
+.actions { display: flex; gap: 8px; margin-top: 10px; }
+.action { background: var(--raise); border-radius: 10px; padding: 10px 14px; display: inline-flex; align-items: center; gap: 8px; }
+.action:hover { background: var(--raise2); }
 .rec { width: 9px; height: 9px; border-radius: 50%; background: #d0704f; display: inline-block; }
-.grabando .rec { background: var(--hi); }
-body.soltando main { background: var(--raise); }
-.ejemplos button { color: var(--ink); text-decoration: underline; text-decoration-color: var(--faint); text-underline-offset: 3px; }
-.ejemplos button:hover { text-decoration-color: var(--hi); color: var(--hi); }
+.recording .rec { background: var(--hi); }
+body.dropping main { background: var(--raise); }
+.examples button { color: var(--ink); text-decoration: underline; text-decoration-color: var(--faint); text-underline-offset: 3px; }
+.examples button:hover { text-decoration-color: var(--hi); color: var(--hi); }
 
-#estado { color: var(--dim); font-size: 13px; min-height: 1.45em; }
-.barra { height: 4px; border-radius: 2px; background: var(--raise2); overflow: hidden; margin-top: 6px; }
-.barra i { display: block; height: 100%; width: 0; border-radius: 2px; background: var(--hi); transition: width .2s ease-out; }
+#status { color: var(--dim); font-size: 13px; min-height: 1.45em; }
+.bar { height: 4px; border-radius: 2px; background: var(--raise2); overflow: hidden; margin-top: 6px; }
+.bar i { display: block; height: 100%; width: 0; border-radius: 2px; background: var(--hi); transition: width .2s ease-out; }
 
-#titulo-res { font: 400 30px/1 Tanker, Impact, sans-serif; text-transform: uppercase; margin: 0; letter-spacing: .01em; }
-#titulo-res:empty { display: none; }
+#result-title { font: 400 30px/1 Tanker, Impact, sans-serif; text-transform: uppercase; margin: 0; letter-spacing: .01em; }
+#result-title:empty { display: none; }
 ol { list-style: none; margin: 0; padding: 0; }
-#res li { display: grid; grid-template-columns: 26px 1fr auto; gap: 2px 10px; align-items: center; padding: 9px 8px; border-radius: 10px; cursor: pointer; }
-#res li:hover, #res li.activa { background: var(--raise); }
-#res .n { color: var(--faint); font: 13px ui-monospace, monospace; text-align: right; grid-row: span 2; }
-#res .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-#res .a { color: var(--dim); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-#res .s { font: 13px ui-monospace, monospace; color: var(--dim); text-align: right; }
-#res .desde { font-size: 13px; color: var(--faint); text-align: right; }
-#res .desde:hover { color: var(--hi); }
-#res li.activa .t { color: var(--hi); }
-.reproduce { display: inline-block; width: 0; height: 0; border-left: 7px solid currentColor; border-top: 4.5px solid transparent; border-bottom: 4.5px solid transparent;
-             margin-right: 8px; vertical-align: 1px; color: var(--faint); }
-li.activa .reproduce { color: var(--hi); }
-li.activa.sonando .reproduce { border: 0; width: 7px; height: 9px; border-left: 2.5px solid var(--hi); border-right: 2.5px solid var(--hi); }
+#results li { display: grid; grid-template-columns: 26px 1fr auto; gap: 2px 10px; align-items: center; padding: 9px 8px; border-radius: 10px; cursor: pointer; }
+#results li:hover, #results li.active { background: var(--raise); }
+#results .n { color: var(--faint); font: 13px ui-monospace, monospace; text-align: right; grid-row: span 2; }
+#results .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#results .a { color: var(--dim); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#results .s { font: 13px ui-monospace, monospace; color: var(--dim); text-align: right; }
+#results .from { font-size: 13px; color: var(--faint); text-align: right; }
+#results .from:hover { color: var(--hi); }
+#results li.active .t { color: var(--hi); }
+.play { display: inline-block; width: 0; height: 0; border-left: 7px solid currentColor; border-top: 4.5px solid transparent; border-bottom: 4.5px solid transparent;
+         margin-right: 8px; vertical-align: 1px; color: var(--faint); }
+li.active .play { color: var(--hi); }
+li.active.playing .play { border: 0; width: 7px; height: 9px; border-left: 2.5px solid var(--hi); border-right: 2.5px solid var(--hi); }
 
 footer { margin-top: auto; color: var(--faint); font-size: 12px; padding-top: 20px; }
 footer a { color: var(--dim); }
 
-#lienzo { position: relative; height: 100vh; overflow: hidden; }
-#lienzo canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
-#capa { pointer-events: none; }
-#leyenda { position: absolute; right: 28px; bottom: 22px; max-width: 360px; text-align: right; font-size: 12px; line-height: 1.7; pointer-events: none; }
-#leyenda span { margin-left: 10px; white-space: nowrap; }
-#etiqueta { position: absolute; pointer-events: none; background: var(--raise2); color: var(--ink); font-size: 13px; padding: 5px 9px; border-radius: 7px;
-            white-space: nowrap; transform: translate(12px, -50%); display: none; max-width: min(340px, 48%); overflow: hidden; text-overflow: ellipsis; }
-#etiqueta small { color: var(--dim); }
-#cargando { position: absolute; inset: 0; display: grid; place-items: center; color: var(--faint); font-size: 13px; }
+#map-area { position: relative; height: 100vh; overflow: hidden; }
+#map-area canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+#overlay { pointer-events: none; }
+#legend { position: absolute; right: 28px; bottom: 22px; max-width: 360px; text-align: right; font-size: 12px; line-height: 1.7; pointer-events: none; }
+#legend span { margin-left: 10px; white-space: nowrap; }
+#tooltip { position: absolute; pointer-events: none; background: var(--raise2); color: var(--ink); font-size: 13px; padding: 5px 9px; border-radius: 7px;
+           white-space: nowrap; transform: translate(12px, -50%); display: none; max-width: min(340px, 48%); overflow: hidden; text-overflow: ellipsis; }
+#tooltip small { color: var(--dim); }
+#loading { position: absolute; inset: 0; display: grid; place-items: center; color: var(--faint); font-size: 13px; }
 
 @media (max-width: 820px) {
   body { display: flex; flex-direction: column; height: auto; }
-  #lienzo { order: -1; height: 42vh; flex: none; position: sticky; top: 0; z-index: 2; background: var(--bg); }
+  #map-area { order: -1; height: 42vh; flex: none; position: sticky; top: 0; z-index: 2; background: var(--bg); }
   main { height: auto; overflow: visible; padding: 20px 16px 24px; }
-  #titulo-res { scroll-margin-top: 44vh; }
+  #result-title { scroll-margin-top: 44vh; }
   h1 { font-size: 56px; }
-  #leyenda { display: none; }
+  #legend { display: none; }
 }
 </style>
 </head>
 <body>
 <main>
-  <h1>Suena <span>a…</span></h1>
+  <h1>Sounds <span>like…</span></h1>
   <div>
-    <div class="campo">
+    <div class="field">
       <input id="q" type="search" autocomplete="off" spellcheck="false" placeholder="Jahzzar - Siesta"
-             aria-label="Canción del catálogo" aria-controls="sugerencias">
-      <ul id="sugerencias" role="listbox"></ul>
+             aria-label="Song from the catalogue" aria-controls="suggestions">
+      <ul id="suggestions" role="listbox"></ul>
     </div>
-    <div class="acciones">
-      <button class="accion" id="subir">Subir un audio</button>
-      <input id="archivo" type="file" accept="audio/*,video/*" hidden>
-      <button class="accion" id="grabar"><i class="rec"></i><span>Grabar</span></button>
+    <div class="actions">
+      <button class="action" id="upload">Upload audio</button>
+      <input id="file" type="file" accept="audio/*,video/*" hidden>
+      <button class="action" id="record"><i class="rec"></i><span>Record</span></button>
     </div>
-    <p class="ayuda">Escribe una canción del catálogo, sube un audio (o suéltalo aquí) o graba lo que suena a tu alrededor.
-      Se usan los primeros 30 s. También puedes tocar un punto del mapa.</p>
-    <p class="ayuda ejemplos">Prueba:
+    <p class="hint">Type a song from the catalogue, upload an audio file (or drop it here), or use an audio clip from
+      <a target="_blank" href="https://huggingface.co/datasets/benjamin-paine/free-music-archive-large">FMA</a> and see what it matches.
+      Only the first 30 s are used. You can also click any point on the map.</p>
+    <p class="hint examples">Try:
       <button data-c="Jahzzar - Siesta">Jahzzar · Siesta</button>,
       <button data-c="Broke For Free - Night Owl">Broke For Free · Night Owl</button>,
       <button data-c="Kevin MacLeod - Ghost Dance">Kevin MacLeod · Ghost Dance</button>.
     </p>
   </div>
-  <div id="estado" aria-live="polite"></div>
+  <div id="status" aria-live="polite"></div>
   <section>
-    <h2 id="titulo-res"></h2>
-    <ol id="res"></ol>
+    <h2 id="result-title"></h2>
+    <ol id="results"></ol>
   </section>
   <footer>
-    Free Music Archive (CC BY 4.0) · embeddings de <a href="https://huggingface.co/OpenMuQ/MuQ-MuLan-large">MuQ-MuLan</a> (CC BY-NC 4.0) ·
-    el modelo de audio corre en tu navegador · audio servido por la <a href="https://huggingface.co/datasets/benjamin-paine/free-music-archive-large">réplica de FMA</a> ·
-    <a href="https://github.com/PGSCOM/music-similarity">código</a>
+    Free Music Archive (CC BY 4.0) · embeddings from <a target="_blank" href="https://huggingface.co/OpenMuQ/MuQ-MuLan-large">MuQ-MuLan</a> (CC BY-NC 4.0) ·
+    the audio model runs in your browser · audio served by the <a target="_blank" href="https://huggingface.co/datasets/benjamin-paine/free-music-archive-large">FMA mirror</a> ·
+    <a target="_blank" href="https://github.com/PGSCOM/music-similarity">code</a>
   </footer>
 </main>
-<div id="lienzo">
-  <canvas id="mapa" aria-hidden="true"></canvas>
-  <canvas id="capa" aria-hidden="true"></canvas>
-  <div id="etiqueta"></div>
-  <div id="leyenda" aria-hidden="true"></div>
-  <div id="cargando">cargando el mapa…</div>
+<div id="map-area">
+  <canvas id="map" aria-hidden="true"></canvas>
+  <canvas id="overlay" aria-hidden="true"></canvas>
+  <div id="tooltip"></div>
+  <div id="legend" aria-hidden="true"></div>
+  <div id="loading">loading the map…</div>
 </div>
 <audio id="audio" preload="none"></audio>
 
 <script type="module">
 const ORT = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.30.0/dist/";
-const MEL = "modelo/mel.onnx", MODELO = "modelo/audio_q4f16.onnx";  // ver exportar_web.py
+const MEL = "model/mel.onnx", MODEL = "model/audio_q4f16.onnx";  // see export_web.py
 const SR = 24000, CLIP = 10 * SR;
-const REPLICA = "https://datasets-server.huggingface.co/rows?dataset=benjamin-paine/free-music-archive-large&config=default&split=train&length=1&offset=";
+const MIRROR = "https://datasets-server.huggingface.co/rows?dataset=benjamin-paine/free-music-archive-large&config=default&split=train&length=1&offset=";
 const K = 12;
-const COLOR = {  // colores de datos (género), apagados para que la densidad haga de luz
-  "-": "#5a4c45", "electrónica": "#4fb0a6", "rock": "#d0704f", "folk": "#d9ad4c", "hip hop": "#c96f8f", "pop": "#e8cfa6",
-  "clásica": "#9fb6d6", "jazz": "#a5bf62", "bandas sonoras": "#7f9cc0", "metal": "#b04a3e", "country": "#c78f55",
-  "blues": "#6e8fb8", "r&b/soul": "#d48aa0", "reggae": "#79b36a", "latina": "#e39a5a", "world": "#c2a77a",
-  "africana": "#b88a52", "religiosa": "#b9b0a0",
+const COLOR = {  // data colors (genre), dimmed so that density does the lighting
+  "-": "#5a4c45", "electronic": "#4fb0a6", "rock": "#d0704f", "folk": "#d9ad4c", "hip hop": "#c96f8f", "pop": "#e8cfa6",
+  "classical": "#9fb6d6", "jazz": "#a5bf62", "soundtrack": "#7f9cc0", "metal": "#b04a3e", "country": "#c78f55",
+  "blues": "#6e8fb8", "r&b/soul": "#d48aa0", "reggae": "#79b36a", "latin": "#e39a5a", "world": "#c2a77a",
+  "african": "#b88a52", "religious": "#b9b0a0",
 };
 const $ = (s) => document.querySelector(s);
-const reducido = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-let meta, XY, E, N, D, filas, escala;       // datos
-let vista = null;                            // transformación mapa -> píxeles
-let resultado = null;                        // {origen: [x, y], lista: [{i, s}], activa}
-let malla;                                   // índice espacial para el ratón
+let meta, XY, E, N, D, rows, scale;          // data
+let view = null;                              // map -> pixels transform
+let result = null;                            // {origin: [x, y], list: [{i, s}], active}
+let grid;                                     // spatial index for the mouse
 
-// ---------- carga ----------
-async function bajar(url, alProgreso, cachear = false) {
-  let cache;
-  if (cachear) try { cache = await caches.open("suena-a-1"); const r = await cache.match(url); if (r) return new Uint8Array(await r.arrayBuffer()); } catch {}
+// ---------- loading ----------
+async function fetchBytes(url, onProgress, cache = false) {
+  let c;
+  if (cache) try { c = await caches.open("musicsearcher-1"); const r = await c.match(url); if (r) return new Uint8Array(await r.arrayBuffer()); } catch {}
   const r = await fetch(url);
   if (!r.ok) throw new Error(`${url}: ${r.status}`);
-  const total = +r.headers.get("content-length") || 0, partes = [];
+  const total = +r.headers.get("content-length") || 0, parts = [];
   let n = 0;
-  for (const lector = r.body.getReader(); ;) {
-    const { done, value } = await lector.read();
+  for (const reader = r.body.getReader(); ;) {
+    const { done, value } = await reader.read();
     if (done) break;
-    partes.push(value); n += value.length; alProgreso?.(n, total);
+    parts.push(value); n += value.length; onProgress?.(n, total);
   }
   const buf = new Uint8Array(n);
-  let o = 0; for (const p of partes) { buf.set(p, o); o += p.length; }
-  if (cache) try { await cache.put(url, new Response(buf)); } catch {}
+  let o = 0; for (const p of parts) { buf.set(p, o); o += p.length; }
+  if (c) try { await c.put(url, new Response(buf)); } catch {}
   return buf;
 }
 
-function estado(texto, frac = null) {
-  $("#estado").innerHTML = texto + (frac === null ? "" : `<div class="barra"><i style="width:${(frac * 100).toFixed(1)}%"></i></div>`);
+function setStatus(text, frac = null) {
+  $("#status").innerHTML = text + (frac === null ? "" : `<div class="bar"><i style="width:${(frac * 100).toFixed(1)}%"></i></div>`);
 }
 const mb = (n) => (n / 1e6).toFixed(0) + " MB";
 
-async function cargarDatos() {
-  const [m, xy] = await Promise.all([fetch("meta.json").then((r) => r.json()), bajar("mapa.bin")]);
-  meta = m; filas = m.filas; N = filas.length; D = m.dim; escala = m.escala;
+async function loadData() {
+  const [m, xy] = await Promise.all([fetch("meta.json").then((r) => r.json()), fetchBytes("map.bin")]);
+  meta = m; rows = m.rows; N = rows.length; D = m.dim; scale = m.scale;
   XY = new Uint16Array(xy.buffer, 0, N * 2);
-  $("#cargando").remove();
-  indexar(); pintarMapa(); leyenda();
-  E = new Int8Array((await bajar("emb.bin", (n, t) => estado(`Cargando los vectores de ${N.toLocaleString("es")} canciones · ${mb(n)}${t ? " de " + mb(t) : ""}`, t ? n / t : null))).buffer);
-  estado("");
+  $("#loading").remove();
+  buildIndex(); drawMap(); legend();
+  E = new Int8Array((await fetchBytes("emb.bin", (n, t) => setStatus(`Loading the vectors of ${N.toLocaleString("en")} songs · ${mb(n)}${t ? " of " + mb(t) : ""}`, t ? n / t : null))).buffer);
+  setStatus("");
 }
 
-// ---------- mapa ----------
+// ---------- map ----------
 function colorRGB(hex) { return [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255); }
 
-function pintarMapa() {
-  const c = $("#mapa"), r = c.getBoundingClientRect(), dpr = Math.min(devicePixelRatio || 1, 2);
-  const W = c.width = $("#capa").width = Math.round(r.width * dpr), H = c.height = $("#capa").height = Math.round(r.height * dpr);
-  const lado = Math.min(W, H) * 0.86;
-  vista = { dpr, lado, x0: (W - lado) / 2, y0: (H - lado) / 2 };
-  const acc = new Float32Array(W * H * 3), cols = meta.generos.map((g) => colorRGB(COLOR[g] || COLOR["-"]));
+function drawMap() {
+  const c = $("#map"), r = c.getBoundingClientRect(), dpr = Math.min(devicePixelRatio || 1, 2);
+  const W = c.width = $("#overlay").width = Math.round(r.width * dpr), H = c.height = $("#overlay").height = Math.round(r.height * dpr);
+  const side = Math.min(W, H) * 0.86;
+  view = { dpr, side, x0: (W - side) / 2, y0: (H - side) / 2 };
+  const acc = new Float32Array(W * H * 3), cols = meta.genres.map((g) => colorRGB(COLOR[g] || COLOR["-"]));
   for (let i = 0; i < N; i++) {
-    const [x, y] = punto(i), px = x | 0, py = y | 0;
+    const [x, y] = point(i), px = x | 0, py = y | 0;
     if (px < 0 || py < 0 || px >= W || py >= H) continue;
-    const o = (py * W + px) * 3, col = cols[filas[i][2]];
+    const o = (py * W + px) * 3, col = cols[rows[i][2]];
     acc[o] += col[0]; acc[o + 1] += col[1]; acc[o + 2] += col[2];
   }
   const ctx = c.getContext("2d"), img = ctx.createImageData(W, H), d = img.data, k = 0.75 / dpr;
-  const fondo = colorRGB("#120d0c");
+  const bg = colorRGB("#120d0c");
   for (let p = 0, o = 0; p < W * H; p++, o += 3) {
     const q = p * 4;
-    for (let j = 0; j < 3; j++) d[q + j] = 255 * (fondo[j] + (1 - fondo[j]) * (1 - Math.exp(-k * acc[o + j])));
+    for (let j = 0; j < 3; j++) d[q + j] = 255 * (bg[j] + (1 - bg[j]) * (1 - Math.exp(-k * acc[o + j])));
     d[q + 3] = 255;
   }
   ctx.putImageData(img, 0, 0);
-  pintarCapa();
+  drawOverlay();
 }
 
-function punto(i) {
-  return [vista.x0 + XY[2 * i] / 65535 * vista.lado, vista.y0 + (1 - XY[2 * i + 1] / 65535) * vista.lado];
+function point(i) {
+  return [view.x0 + XY[2 * i] / 65535 * view.side, view.y0 + (1 - XY[2 * i + 1] / 65535) * view.side];
 }
 
-function indexar() {  // rejilla 96×96 sobre las coordenadas normalizadas
-  malla = Array.from({ length: 96 * 96 }, () => []);
-  for (let i = 0; i < N; i++) malla[Math.min(95, XY[2 * i] * 96 / 65536 | 0) * 96 + Math.min(95, (1 - XY[2 * i + 1] / 65535) * 96 | 0)].push(i);
+function buildIndex() {  // 96x96 grid over the normalized coordinates
+  grid = Array.from({ length: 96 * 96 }, () => []);
+  for (let i = 0; i < N; i++) grid[Math.min(95, XY[2 * i] * 96 / 65536 | 0) * 96 + Math.min(95, (1 - XY[2 * i + 1] / 65535) * 96 | 0)].push(i);
 }
 
-function cercano(px, py, radio) {  // px, py en píxeles del lienzo
-  const u = (px - vista.x0) / vista.lado, v = (py - vista.y0) / vista.lado, cu = u * 96 | 0, cv = v * 96 | 0;
-  let mejor = -1, d2 = radio * radio;
+function nearest(px, py, radius) {  // px, py in canvas pixels
+  const u = (px - view.x0) / view.side, v = (py - view.y0) / view.side, cu = u * 96 | 0, cv = v * 96 | 0;
+  let best = -1, d2 = radius * radius;
   for (let a = cu - 1; a <= cu + 1; a++) for (let b = cv - 1; b <= cv + 1; b++) {
     if (a < 0 || b < 0 || a > 95 || b > 95) continue;
-    for (const i of malla[a * 96 + b]) {
-      const [x, y] = punto(i), dd = (x - px) ** 2 + (y - py) ** 2;
-      if (dd < d2) { d2 = dd; mejor = i; }
+    for (const i of grid[a * 96 + b]) {
+      const [x, y] = point(i), dd = (x - px) ** 2 + (y - py) ** 2;
+      if (dd < d2) { d2 = dd; best = i; }
     }
   }
-  return mejor;
+  return best;
 }
 
-function leyenda() {
-  const n = new Array(meta.generos.length).fill(0);
-  for (const f of filas) n[f[2]]++;
-  $("#leyenda").innerHTML = meta.generos.map((g, i) => [g, n[i]]).filter(([g]) => g !== "-").sort((a, b) => b[1] - a[1])
+function legend() {
+  const n = new Array(meta.genres.length).fill(0);
+  for (const r of rows) n[r[2]]++;
+  $("#legend").innerHTML = meta.genres.map((g, i) => [g, n[i]]).filter(([g]) => g !== "-").sort((a, b) => b[1] - a[1])
     .map(([g]) => `<span style="color:${COLOR[g]}">${g}</span>`).join(" ");
 }
 
-// ---------- capa de resultados: hilos desde la consulta ----------
+// ---------- results layer: threads from the query ----------
 let t0 = 0;
-function pintarCapa(ahora = performance.now()) {
-  const c = $("#capa"), ctx = c.getContext("2d");
+function drawOverlay(now = performance.now()) {
+  const c = $("#overlay"), ctx = c.getContext("2d");
   ctx.clearRect(0, 0, c.width, c.height);
-  if (!resultado || !vista) return;
-  const dpr = vista.dpr, [ox, oy] = resultado.origen, avance = reducido ? 1 : Math.min(1, (ahora - t0) / 700);
-  const facil = 1 - (1 - avance) ** 3;
-  ctx.fillStyle = "rgba(18,13,12,.55)"; ctx.fillRect(0, 0, c.width, c.height);  // la nebulosa se apaga y quedan los hilos
+  if (!result || !view) return;
+  const dpr = view.dpr, [ox, oy] = result.origin, progress = reduced ? 1 : Math.min(1, (now - t0) / 700);
+  const eased = 1 - (1 - progress) ** 3;
+  ctx.fillStyle = "rgba(18,13,12,.55)"; ctx.fillRect(0, 0, c.width, c.height);  // the nebula fades out and only the threads are left
   ctx.lineCap = "round";
-  resultado.lista.forEach(({ i }, n) => {
-    const [x, y] = punto(i), mx = (ox + x) / 2 - (y - oy) * 0.18, my = (oy + y) / 2 + (x - ox) * 0.18;
-    const activa = n === resultado.activa;
-    ctx.strokeStyle = activa ? "rgba(255,216,166,.95)" : `rgba(255,216,166,${0.55 - n * 0.03})`;
-    ctx.lineWidth = (activa ? 1.8 : 1) * dpr;
+  result.list.forEach(({ i }, n) => {
+    const [x, y] = point(i), mx = (ox + x) / 2 - (y - oy) * 0.18, my = (oy + y) / 2 + (x - ox) * 0.18;
+    const active = n === result.active;
+    ctx.strokeStyle = active ? "rgba(255,216,166,.95)" : `rgba(255,216,166,${0.55 - n * 0.03})`;
+    ctx.lineWidth = (active ? 1.8 : 1) * dpr;
     ctx.beginPath(); ctx.moveTo(ox, oy);
-    // hilo dibujado hasta "facil" a lo largo de la curva
+    // thread drawn up to "eased" along the curve
     for (let s = 1; s <= 24; s++) {
-      const t = (s / 24) * facil, a = (1 - t) ** 2, b = 2 * (1 - t) * t, cc = t * t;
+      const t = (s / 24) * eased, a = (1 - t) ** 2, b = 2 * (1 - t) * t, cc = t * t;
       ctx.lineTo(a * ox + b * mx + cc * x, a * oy + b * my + cc * y);
     }
     ctx.stroke();
-    if (avance === 1) {
-      ctx.fillStyle = "#ffd8a6"; ctx.beginPath(); ctx.arc(x, y, (activa ? 4 : 3) * dpr, 0, 7); ctx.fill();
-      if (activa) {
+    if (progress === 1) {
+      ctx.fillStyle = "#ffd8a6"; ctx.beginPath(); ctx.arc(x, y, (active ? 4 : 3) * dpr, 0, 7); ctx.fill();
+      if (active) {
         ctx.lineWidth = 1.5 * dpr; ctx.beginPath();
         const au = $("#audio"), p = au.duration ? au.currentTime / au.duration : 0;
-        ctx.arc(x, y, 9 * dpr, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (sonando() ? p : 1)); ctx.stroke();
+        ctx.arc(x, y, 9 * dpr, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (isPlaying() ? p : 1)); ctx.stroke();
       }
     }
   });
   ctx.fillStyle = "#f1e6d8"; ctx.strokeStyle = "#120d0c"; ctx.lineWidth = 3 * dpr;
   ctx.beginPath(); ctx.arc(ox, oy, 5 * dpr, 0, 7); ctx.stroke(); ctx.fill();
-  if (avance < 1 || sonando()) requestAnimationFrame(pintarCapa);
+  if (progress < 1 || isPlaying()) requestAnimationFrame(drawOverlay);
 }
-const sonando = () => !$("#audio").paused;
-const genero = (g) => meta.generos[g] === "-" ? "" : " · " + meta.generos[g];
+const isPlaying = () => !$("#audio").paused;
+const genre = (g) => meta.genres[g] === "-" ? "" : " · " + meta.genres[g];
 
-// ---------- búsqueda ----------
-function vecinos(q, excluir = -1) {  // q: Float32Array(D) ya escalado como los int8
+// ---------- search ----------
+function neighbors(q, exclude = -1) {  // q: Float32Array(D) already scaled like the int8
   const top = [];
   for (let i = 0, o = 0; i < N; i++, o += D) {
     let s = 0;
     for (let j = 0; j < D; j++) s += q[j] * E[o + j];
-    if (i === excluir || (top.length === K && s <= top[K - 1].s)) continue;
+    if (i === exclude || (top.length === K && s <= top[K - 1].s)) continue;
     let p = top.length === K ? K - 1 : top.length;
     while (p > 0 && top[p - 1].s < s) { top[p] = top[p - 1]; p--; }
     top[p] = { i, s };
@@ -289,47 +291,47 @@ function vecinos(q, excluir = -1) {  // q: Float32Array(D) ya escalado como los 
   return top;
 }
 
-function mostrar(titulo, lista, origen) {
-  resultado = { lista, origen, activa: -1 };
-  $("#titulo-res").textContent = titulo;
-  $("#res").innerHTML = lista.map(({ i, s }, n) => {
-    const [art, tit, g] = filas[i];
-    return `<li data-n="${n}"><span class="n">${n + 1}</span><span class="t"><span class="reproduce"></span>${esc(tit)}</span>
-      <span class="s">${s.toFixed(2)}</span><span class="a">${esc(art)}${genero(g)}</span>
-      <button class="desde" data-i="${i}" title="Buscar parecidas a esta">parecidas</button></li>`;
+function show(title, list, origin) {
+  result = { list, origin, active: -1 };
+  $("#result-title").textContent = title;
+  $("#results").innerHTML = list.map(({ i, s }, n) => {
+    const [artist, name, g] = rows[i];
+    return `<li data-n="${n}"><span class="n">${n + 1}</span><span class="t"><span class="play"></span>${esc(name)}</span>
+      <span class="s">${s.toFixed(2)}</span><span class="a">${esc(artist)}${genre(g)}</span>
+      <button class="from" data-i="${i}" title="Find songs similar to this one">similar</button></li>`;
   }).join("");
   $("#audio").pause();
-  t0 = performance.now(); requestAnimationFrame(pintarCapa);
-  if (matchMedia("(max-width: 820px)").matches) $("#titulo-res").scrollIntoView({ behavior: reducido ? "auto" : "smooth" });
+  t0 = performance.now(); requestAnimationFrame(drawOverlay);
+  if (matchMedia("(max-width: 820px)").matches) $("#result-title").scrollIntoView({ behavior: reduced ? "auto" : "smooth" });
 }
 
-function porCancion(i) {
-  if (!E) return estado("Aún se están cargando los vectores…");
+function bySong(i) {
+  if (!E) return setStatus("The vectors are still loading…");
   const q = new Float32Array(D);
-  for (let j = 0; j < D; j++) q[j] = E[i * D + j] / (escala * escala);
-  const [art, tit] = filas[i];
-  mostrar(`Parecidas a ${tit}`, vecinos(q, i), punto(i));
-  $("#q").value = `${art} - ${tit}`;
+  for (let j = 0; j < D; j++) q[j] = E[i * D + j] / (scale * scale);
+  const [artist, name] = rows[i];
+  show(`Similar to ${name}`, neighbors(q, i), point(i));
+  $("#q").value = `${artist} - ${name}`;
 }
 
-let modelo = null;
-async function cargarModelo() {
+let model = null;
+async function loadModel() {
   const ort = await import(ORT + "ort.webgpu.min.mjs");
   ort.env.wasm.wasmPaths = ORT;
-  const progreso = (n, t) => estado(`Descargando el modelo de audio (solo la primera vez) · ${mb(n)}${t ? " de " + mb(t) : ""}`, t ? n / t : null);
-  const mel = await bajar(MEL, null, true), cod = await bajar(MODELO, progreso, true);
-  estado("Preparando el modelo…");
+  const progress = (n, t) => setStatus(`Downloading the audio model (only the first time) · ${mb(n)}${t ? " of " + mb(t) : ""}`, t ? n / t : null);
+  const mel = await fetchBytes(MEL, null, true), enc = await fetchBytes(MODEL, progress, true);
+  setStatus("Preparing the model…");
   const gpu = !!navigator.gpu && !!(await navigator.gpu.requestAdapter().catch(() => null));
-  ort.env.wasm.proxy = !gpu;  // sin WebGPU, el cálculo va en un worker para no congelar la página
+  ort.env.wasm.proxy = !gpu;  // without WebGPU the computation runs in a worker so the page does not freeze
   const ep = { executionProviders: gpu ? ["webgpu", "wasm"] : ["wasm"] };
-  // Con las fusiones de los niveles "extended"/"all", el codificador da mal en WebGPU con algunas
-  // canciones (p. ej. Jahzzar - Siesta: 0,81 con su vector frente a 0,98 en CPU); con "basic", bien.
+  // With the fusions of the "extended"/"all" levels the encoder gives wrong results on WebGPU for
+  // some songs (e.g. Jahzzar - Siesta: 0.81 with its vector vs 0.98 on CPU); with "basic" it is fine.
   return { ort, gpu, mel: await ort.InferenceSession.create(mel, ep),
-           cod: await ort.InferenceSession.create(cod, { ...ep, graphOptimizationLevel: "basic" }) };
+           enc: await ort.InferenceSession.create(enc, { ...ep, graphOptimizationLevel: "basic" }) };
 }
 
-async function aOnda(blob) {  // cualquier audio -> mono a 24 kHz, primeros 30 s (como librosa en embed.py)
-  // decodeAudioData ya remuestrea a 24 kHz (el contexto); la mezcla a mono es la media, como librosa.
+async function toWave(blob) {  // any audio -> mono at 24 kHz, first 30 s (like librosa in embed.py)
+  // decodeAudioData already resamples to 24 kHz (the context); the mono mix is the mean, like librosa.
   const a = await new OfflineAudioContext(1, 1, SR).decodeAudioData(await blob.arrayBuffer());
   const n = Math.min(a.length, 30 * SR), w = new Float32Array(n);
   for (let c = 0; c < a.numberOfChannels; c++) {
@@ -339,111 +341,111 @@ async function aOnda(blob) {  // cualquier audio -> mono a 24 kHz, primeros 30 s
   return w;
 }
 
-function clips(w) {  // = exportar_web.clips: repetir si dura < 10 s y trocear en ventanas de 10 s
+function clips(w) {  // = export_web.clips: repeat if shorter than 10 s and cut into 10 s windows
   if (w.length < CLIP) { const r = new Float32Array(Math.ceil(CLIP / w.length) * w.length); for (let o = 0; o < r.length; o += w.length) r.set(w, o); w = r; }
   const out = [];
   for (let i = 0; i + CLIP <= w.length; i += CLIP) out.push(w.slice(i, i + CLIP));
-  const resto = w.length % CLIP;
-  if (resto) { const c = new Float32Array(CLIP); c.set(w.subarray(w.length - resto)); c.set(w.subarray(0, CLIP - resto), resto); out.push(c); }
+  const rest = w.length % CLIP;
+  if (rest) { const c = new Float32Array(CLIP); c.set(w.subarray(w.length - rest)); c.set(w.subarray(0, CLIP - rest), rest); out.push(c); }
   return out;
 }
 
-async function porAudio(blob, nombre) {
-  if (!E) return estado("Aún se están cargando los vectores…");
+async function byAudio(blob, name) {
+  if (!E) return setStatus("The vectors are still loading…");
   try {
-    estado("Leyendo el audio…");
-    const w = await aOnda(blob);
-    if (w.length <= SR) return estado("El audio dura menos de un segundo.");
-    modelo ??= cargarModelo();
-    const { ort, gpu, mel, cod } = await modelo;
-    const v = new Float32Array(D), trozos = clips(w);
-    for (const [k, c] of trozos.entries()) {
-      estado(`Escuchando${gpu ? " con WebGPU" : " (sin WebGPU, en la CPU)"} · ${k + 1} de ${trozos.length}`, k / trozos.length);
+    setStatus("Reading the audio…");
+    const w = await toWave(blob);
+    if (w.length <= SR) return setStatus("The audio is shorter than one second.");
+    model ??= loadModel();
+    const { ort, gpu, mel, enc } = await model;
+    const v = new Float32Array(D), pieces = clips(w);
+    for (const [k, c] of pieces.entries()) {
+      setStatus(`Listening${gpu ? " with WebGPU" : " (without WebGPU, on the CPU)"} · ${k + 1} of ${pieces.length}`, k / pieces.length);
       const m = (await mel.run({ wav: new ort.Tensor("float32", c, [1, CLIP]) })).mel;
-      const e = (await cod.run({ mel: m })).embedding.data;
+      const e = (await enc.run({ mel: m })).embedding.data;
       for (let j = 0; j < D; j++) v[j] += e[j];
     }
-    const norma = Math.hypot(...v), q = v.map((x) => x / norma / escala);
-    const lista = vecinos(q);
-    let ox = 0, oy = 0;  // tu audio no está en el mapa: se coloca en el centro de sus resultados
-    for (const { i } of lista) { const [x, y] = punto(i); ox += x / lista.length; oy += y / lista.length; }
-    mostrar(`Suena a ${nombre}`, lista, [ox, oy]);
-    estado(`Calculado en tu navegador${gpu ? " con WebGPU" : " (este navegador no tiene WebGPU: CPU)"}.`);
+    const norm = Math.hypot(...v), q = v.map((x) => x / norm / scale);
+    const list = neighbors(q);
+    let ox = 0, oy = 0;  // your audio is not on the map: it is placed at the center of its results
+    for (const { i } of list) { const [x, y] = point(i); ox += x / list.length; oy += y / list.length; }
+    show(`Sounds like ${name}`, list, [ox, oy]);
+    setStatus(`Computed in your browser${gpu ? " with WebGPU" : " (this browser has no WebGPU: CPU)"}.`);
   } catch (e) {
-    modelo = null; console.error(e);
-    estado("No he podido procesar el audio: " + esc(e.message || String(e)));
+    model = null; console.error(e);
+    setStatus("Could not process the audio: " + esc(e.message || String(e)));
   }
 }
 
-$("#subir").addEventListener("click", () => $("#archivo").click());
-$("#archivo").addEventListener("change", (e) => { const f = e.target.files[0]; if (f) porAudio(f, f.name.replace(/\.[^.]+$/, "")); e.target.value = ""; });
-addEventListener("dragover", (e) => { e.preventDefault(); document.body.classList.add("soltando"); });
-addEventListener("dragleave", (e) => { if (!e.relatedTarget) document.body.classList.remove("soltando"); });
+$("#upload").addEventListener("click", () => $("#file").click());
+$("#file").addEventListener("change", (e) => { const f = e.target.files[0]; if (f) byAudio(f, f.name.replace(/\.[^.]+$/, "")); e.target.value = ""; });
+addEventListener("dragover", (e) => { e.preventDefault(); document.body.classList.add("dropping"); });
+addEventListener("dragleave", (e) => { if (!e.relatedTarget) document.body.classList.remove("dropping"); });
 addEventListener("drop", (e) => {
-  e.preventDefault(); document.body.classList.remove("soltando");
-  const f = e.dataTransfer.files[0]; if (f) porAudio(f, f.name.replace(/\.[^.]+$/, ""));
+  e.preventDefault(); document.body.classList.remove("dropping");
+  const f = e.dataTransfer.files[0]; if (f) byAudio(f, f.name.replace(/\.[^.]+$/, ""));
 });
 
-let grabadora = null;
-$("#grabar").addEventListener("click", async () => {
-  const b = $("#grabar"), txt = b.querySelector("span");
-  if (grabadora) return grabadora.stop();
+let recorder = null;
+$("#record").addEventListener("click", async () => {
+  const b = $("#record"), txt = b.querySelector("span");
+  if (recorder) return recorder.stop();
   try {
-    const flujo = await navigator.mediaDevices.getUserMedia({ audio: true }), trozos = [], t0 = Date.now();
-    grabadora = new MediaRecorder(flujo);
-    grabadora.ondataavailable = (e) => trozos.push(e.data);
-    const reloj = setInterval(() => {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true }), pieces = [], t0 = Date.now();
+    recorder = new MediaRecorder(stream);
+    recorder.ondataavailable = (e) => pieces.push(e.data);
+    const clock = setInterval(() => {
       const s = Math.floor((Date.now() - t0) / 1000);
-      txt.textContent = `Grabando 0:${String(s).padStart(2, "0")} · parar`;
-      if (s >= 30) grabadora.stop();
+      txt.textContent = `Recording 0:${String(s).padStart(2, "0")} · stop`;
+      if (s >= 30) recorder.stop();
     }, 250);
-    grabadora.onstop = () => {
-      clearInterval(reloj); flujo.getTracks().forEach((t) => t.stop());
-      grabadora = null; b.classList.remove("grabando"); txt.textContent = "Grabar";
-      porAudio(new Blob(trozos, { type: trozos[0]?.type }), "tu grabación");
+    recorder.onstop = () => {
+      clearInterval(clock); stream.getTracks().forEach((t) => t.stop());
+      recorder = null; b.classList.remove("recording"); txt.textContent = "Record";
+      byAudio(new Blob(pieces, { type: pieces[0]?.type }), "your recording");
     };
-    grabadora.start(); b.classList.add("grabando"); txt.textContent = "Grabando 0:00 · parar";
-  } catch (e) { estado("No hay acceso al micrófono."); }
+    recorder.start(); b.classList.add("recording"); txt.textContent = "Recording 0:00 · stop";
+  } catch (e) { setStatus("No access to the microphone."); }
 });
 
 // ---------- audio ----------
 const urls = new Map();
-async function reproducir(n) {
-  const au = $("#audio"), lis = [...$("#res").children];
-  if (resultado.activa === n && au.src) { au.paused ? au.play() : au.pause(); return; }
-  resultado.activa = n;
-  lis.forEach((li, k) => li.classList.toggle("activa", k === n));
-  requestAnimationFrame(pintarCapa);
-  const fila = filas[resultado.lista[n].i][4];
+async function play(n) {
+  const au = $("#audio"), lis = [...$("#results").children];
+  if (result.active === n && au.src) { au.paused ? au.play() : au.pause(); return; }
+  result.active = n;
+  lis.forEach((li, k) => li.classList.toggle("active", k === n));
+  requestAnimationFrame(drawOverlay);
+  const row = rows[result.list[n].i][4];
   try {
-    if (!urls.has(fila)) urls.set(fila, (await (await fetch(REPLICA + fila)).json()).rows[0].row.audio[0].src);
-    if (resultado.activa !== n) return;
-    au.src = urls.get(fila); await au.play();
-  } catch (e) { console.error(e); estado("No se ha podido cargar el audio de esta canción."); }
+    if (!urls.has(row)) urls.set(row, (await (await fetch(MIRROR + row)).json()).rows[0].row.audio[0].src);
+    if (result.active !== n) return;
+    au.src = urls.get(row); await au.play();
+  } catch (e) { console.error(e); setStatus("Could not load the audio of this song."); }
 }
 for (const ev of ["play", "pause", "ended"]) $("#audio").addEventListener(ev, () => {
-  $("#res .activa")?.classList.toggle("sonando", sonando()); requestAnimationFrame(pintarCapa);
+  $("#results .active")?.classList.toggle("playing", isPlaying()); requestAnimationFrame(drawOverlay);
 });
 
-// ---------- interfaz ----------
+// ---------- interface ----------
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
-const normal = (s) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
-let claves = null, sel = -1;
+const normalize = (s) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+let keys = null, sel = -1;
 
-function sugerir() {
-  const q = normal($("#q").value.trim()), ul = $("#sugerencias");
+function suggest() {
+  const q = normalize($("#q").value.trim()), ul = $("#suggestions");
   sel = -1;
-  if (q.length < 3 || !filas) { ul.innerHTML = ""; return; }
-  claves ??= filas.map((f) => normal(f[0] + " - " + f[1]));
+  if (q.length < 3 || !rows) { ul.innerHTML = ""; return; }
+  keys ??= rows.map((r) => normalize(r[0] + " - " + r[1]));
   const hits = [];
-  for (let i = 0; i < N; i++) if (claves[i].includes(q)) hits.push(i);
-  hits.sort((a, b) => filas[b][5] - filas[a][5]);
-  ul.innerHTML = hits.slice(0, 6).map((i) => `<li role="option" data-i="${i}">${esc(filas[i][1])} <small>${esc(filas[i][0])}</small></li>`).join("");
+  for (let i = 0; i < N; i++) if (keys[i].includes(q)) hits.push(i);
+  hits.sort((a, b) => rows[b][5] - rows[a][5]);
+  ul.innerHTML = hits.slice(0, 6).map((i) => `<li role="option" data-i="${i}">${esc(rows[i][1])} <small>${esc(rows[i][0])}</small></li>`).join("");
 }
 
-$("#q").addEventListener("input", sugerir);
+$("#q").addEventListener("input", suggest);
 $("#q").addEventListener("keydown", (e) => {
-  const ops = [...$("#sugerencias").children];
+  const ops = [...$("#suggestions").children];
   if (e.key === "ArrowDown" || e.key === "ArrowUp") {
     if (!ops.length) return;
     e.preventDefault();
@@ -452,49 +454,49 @@ $("#q").addEventListener("keydown", (e) => {
     ops.forEach((o, k) => o.setAttribute("aria-selected", k === sel));
   } else if (e.key === "Enter") {
     e.preventDefault();
-    if (sel >= 0) return elegir(+ops[sel].dataset.i);
-    if (ops.length) return elegir(+ops[0].dataset.i);
-    if ($("#q").value.trim()) estado("No encuentro esa canción en el catálogo.");
-  } else if (e.key === "Escape") $("#sugerencias").innerHTML = "";
+    if (sel >= 0) return choose(+ops[sel].dataset.i);
+    if (ops.length) return choose(+ops[0].dataset.i);
+    if ($("#q").value.trim()) setStatus("I cannot find that song in the catalogue.");
+  } else if (e.key === "Escape") $("#suggestions").innerHTML = "";
 });
-function elegir(i) { $("#sugerencias").innerHTML = ""; porCancion(i); }
-$("#sugerencias").addEventListener("mousedown", (e) => { const li = e.target.closest("li"); if (li) { e.preventDefault(); elegir(+li.dataset.i); } });
-$("#q").addEventListener("blur", () => setTimeout(() => ($("#sugerencias").innerHTML = ""), 100));
+function choose(i) { $("#suggestions").innerHTML = ""; bySong(i); }
+$("#suggestions").addEventListener("mousedown", (e) => { const li = e.target.closest("li"); if (li) { e.preventDefault(); choose(+li.dataset.i); } });
+$("#q").addEventListener("blur", () => setTimeout(() => ($("#suggestions").innerHTML = ""), 100));
 
-document.querySelector(".ejemplos").addEventListener("click", (e) => {
+document.querySelector(".examples").addEventListener("click", (e) => {
   const b = e.target.closest("button"); if (!b) return;
-  $("#q").value = b.dataset.c; sugerir(); const li = $("#sugerencias li"); if (li) elegir(+li.dataset.i);
+  $("#q").value = b.dataset.c; suggest(); const li = $("#suggestions li"); if (li) choose(+li.dataset.i);
 });
 
-$("#res").addEventListener("click", (e) => {
-  const desde = e.target.closest(".desde");
-  if (desde) return porCancion(+desde.dataset.i);
-  const li = e.target.closest("li"); if (li) reproducir(+li.dataset.n);
+$("#results").addEventListener("click", (e) => {
+  const from = e.target.closest(".from");
+  if (from) return bySong(+from.dataset.i);
+  const li = e.target.closest("li"); if (li) play(+li.dataset.n);
 });
 
-const lienzo = $("#lienzo"), etq = $("#etiqueta");
-function bajoRaton(e) {
-  if (!vista) return -1;
-  const r = $("#mapa").getBoundingClientRect();
-  return cercano((e.clientX - r.left) * vista.dpr, (e.clientY - r.top) * vista.dpr, 10 * vista.dpr);
+const mapArea = $("#map-area"), tip = $("#tooltip");
+function underPointer(e) {
+  if (!view) return -1;
+  const r = $("#map").getBoundingClientRect();
+  return nearest((e.clientX - r.left) * view.dpr, (e.clientY - r.top) * view.dpr, 10 * view.dpr);
 }
-lienzo.addEventListener("pointermove", (e) => {
-  const i = bajoRaton(e);
-  lienzo.style.cursor = i >= 0 ? "pointer" : "default";
-  if (i < 0 || e.pointerType === "touch") { etq.style.display = "none"; return; }
-  const r = lienzo.getBoundingClientRect();
-  etq.innerHTML = `${esc(filas[i][1])} <small>${esc(filas[i][0])}${genero(filas[i][2])}</small>`;
-  etq.style.display = "block";
-  const izq = e.clientX - r.left > r.width / 2;  // en la mitad derecha, la etiqueta va a la izquierda del cursor
-  etq.style.left = (e.clientX - r.left) + "px"; etq.style.top = (e.clientY - r.top) + "px";
-  etq.style.transform = izq ? "translate(calc(-100% - 12px), -50%)" : "translate(12px, -50%)";
+mapArea.addEventListener("pointermove", (e) => {
+  const i = underPointer(e);
+  mapArea.style.cursor = i >= 0 ? "pointer" : "default";
+  if (i < 0 || e.pointerType === "touch") { tip.style.display = "none"; return; }
+  const r = mapArea.getBoundingClientRect();
+  tip.innerHTML = `${esc(rows[i][1])} <small>${esc(rows[i][0])}${genre(rows[i][2])}</small>`;
+  tip.style.display = "block";
+  const right = e.clientX - r.left > r.width / 2;  // on the right half, the tooltip goes to the left of the cursor
+  tip.style.left = (e.clientX - r.left) + "px"; tip.style.top = (e.clientY - r.top) + "px";
+  tip.style.transform = right ? "translate(calc(-100% - 12px), -50%)" : "translate(12px, -50%)";
 });
-lienzo.addEventListener("pointerleave", () => (etq.style.display = "none"));
-lienzo.addEventListener("click", (e) => { const i = bajoRaton(e); if (i >= 0) porCancion(i); });
+mapArea.addEventListener("pointerleave", () => (tip.style.display = "none"));
+mapArea.addEventListener("click", (e) => { const i = underPointer(e); if (i >= 0) bySong(i); });
 
-let tr; addEventListener("resize", () => { clearTimeout(tr); etq.style.display = "none"; tr = setTimeout(() => meta && pintarMapa(), 150); });
+let tr; addEventListener("resize", () => { clearTimeout(tr); tip.style.display = "none"; tr = setTimeout(() => meta && drawMap(), 150); });
 
-cargarDatos().catch((e) => { console.error(e); estado("No se han podido cargar los datos: " + esc(e.message)); });
+loadData().catch((e) => { console.error(e); setStatus("Could not load the data: " + esc(e.message)); });
 </script>
 </body>
 </html>

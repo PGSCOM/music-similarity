@@ -6,4 +6,4 @@ transformers<5  # muq falla con transformers 5 (_attn_implementation)
 librosa
 duckdb
 pyarrow
-huggingface_hub  # hf_hub_download en buscar.py (la versión 0.x que admite transformers<5)
+huggingface_hub  # hf_hub_download in search.py (the 0.x version that supports transformers<5)

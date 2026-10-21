@@ -1,76 +1,77 @@
-# Buscador de canciones parecidas
+# Music similarity search
 
-Convierte cada canción (un fragmento de 30 s) en un vector de 512 números con un modelo de IA y
-busca las que suenan parecido. Como el modelo pone audio y texto en el mismo espacio, también se
-puede buscar con una descripción: *"sad piano ballad"*, *"chill lo-fi hip hop beat"*.
+Turns every song (a 30 s clip) into a 512-number vector with an AI model and finds the ones that
+sound alike. Because the model puts audio and text in the same space, you can also search with a
+description: *"sad piano ballad"*, *"chill lo-fi hip hop beat"*.
 
-- **Demo:** [huggingface.co/spaces/PGSCOM/buscador-musical](https://huggingface.co/spaces/PGSCOM/buscador-musical)
-  (página estática: sube o graba un audio y el modelo corre en tu navegador con WebGPU)
-- **Datos:** [huggingface.co/datasets/PGSCOM/fma-muq-mulan](https://huggingface.co/datasets/PGSCOM/fma-muq-mulan)
-  (105.000 canciones del Free Music Archive + sus embeddings)
-- **Cómo funciona, explicado:** [BLOG.md](BLOG.md)
+- **Demo:** [huggingface.co/spaces/PGSCOM/MusicSearcher](https://huggingface.co/spaces/PGSCOM/MusicSearcher)
+  (a static page: upload or record an audio file and the model runs in your browser with WebGPU)
+- **Data:** [huggingface.co/datasets/PGSCOM/fma-muq-mulan](https://huggingface.co/datasets/PGSCOM/fma-muq-mulan)
+  (106,574 songs from the Free Music Archive + their embeddings)
+- **How it works, explained:** [BLOG.md](BLOG.md)
 
-## Cómo funciona
+## How it works
 
 ```mermaid
 flowchart LR
-    A[Metadatos FMA<br/>106.574 canciones] -->|build_fma.py| B[tracks.parquet<br/>géneros, popularidad,<br/>dónde está el audio]
-    M[(Réplica de fma_large<br/>en Hugging Face)] -->|streaming| E
-    B -->|embed.py| E[MuQ-MuLan<br/>3 ventanas de 10 s → media]
-    E --> V[embeddings.parquet<br/>512 números por canción]
-    V -->|buscar.py| S{Similitud =<br/>producto escalar}
-    V -->|preparar_web.py<br/>int8 + mapa UMAP| W[web/<br/>demo estática]
-    E -->|exportar_web.py<br/>parte de audio| O[ONNX en el navegador<br/>WebGPU]
+    A[FMA metadata<br/>106,574 songs] -->|build_fma.py| B[tracks.parquet<br/>genres, popularity,<br/>where the audio is]
+    M[(fma_large mirror<br/>on Hugging Face)] -->|streaming| E
+    B -->|embed.py| E[MuQ-MuLan<br/>3 windows of 10 s → mean]
+    E --> V[embeddings.parquet<br/>512 numbers per song]
+    V -->|search.py| S{Similarity =<br/>dot product}
+    V -->|prepare_web.py<br/>int8 + UMAP map| W[web/<br/>static demo]
+    E -->|export_web.py<br/>audio part| O[ONNX in the browser<br/>WebGPU]
     O --> W
-    Q1[texto] --> S
-    Q2[canción] --> S
-    Q3[tu audio] --> S
+    Q1[text] --> S
+    Q2[song] --> S
+    Q3[your audio] --> S
 ```
 
-1. **`build_fma.py`** baja los metadatos de FMA y genera `tracks.parquet`: una fila por canción
-   con artista, escuchas, géneros finos, uno de 18 géneros grandes (`generos.py`) y su posición
-   en la réplica del audio que hay en Hugging Face (no hace falta descargar los 93 GB).
-2. **`embed.py`** lee cada clip en streaming, lo pasa por
-   [MuQ-MuLan-large](https://huggingface.co/OpenMuQ/MuQ-MuLan-large) en ventanas de 10 s y guarda
-   la media normalizada. En una RTX 4070 Ti SUPER va a unas 30 canciones/s (~1 h para todo FMA).
-3. **`buscar.py`** (y la demo) compara vectores: el parecido entre dos canciones es su producto
-   escalar. Para texto o audio nuevos, primero los pasa por el mismo modelo.
-4. **`web/`** es la demo: una página sin servidor. `preparar_web.py` pasa los vectores a int8 (54 MB;
-   el top-10 casi no cambia) y calcula un mapa 2D con UMAP; `exportar_web.py` exporta la parte de audio
-   del modelo a ONNX (espectrograma en fp32 + MuQ con pesos de 4 bits, 266 MB) para que tu audio se
-   procese en el navegador. Las búsquedas por texto quedan en `buscar.py --texto`.
-5. **`analizar.py`** resume cualquier `tracks*.parquet` (columnas, géneros, popularidad, décadas).
+1. **`build_fma.py`** downloads the FMA metadata and generates `tracks.parquet`: one row per song
+   with artist, play count, fine genres, one of 18 macro genres (`genres.py`) and its position in
+   the audio mirror hosted on Hugging Face (no need to download its 93 GB).
+2. **`embed.py`** reads every clip in streaming, runs it through
+   [MuQ-MuLan-large](https://huggingface.co/OpenMuQ/MuQ-MuLan-large) in 10 s windows and stores the
+   normalized mean. On an RTX 4070 Ti SUPER it runs at about 30 songs/s (~1 h for all of FMA).
+3. **`search.py`** (and the demo) compares vectors: the similarity between two songs is their dot
+   product. For new text or audio, it first runs it through the same model.
+4. **`web/`** is the demo: a page with no server. `prepare_web.py` turns the vectors into int8 (54 MB;
+   the top-10 barely changes) and computes a 2D map with UMAP; `export_web.py` exports the audio
+   part of the model to ONNX (spectrogram in fp32 + MuQ with 4-bit weights, 266 MB) so that your
+   audio is processed in the browser. Text search stays in `search.py --text`.
+5. **`analyze.py`** summarizes any `tracks*.parquet` (columns, genres, popularity, decades).
 
-## Usarlo
+## Usage
 
 ```bash
 python -m venv venv
-venv/bin/pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128   # los 3 del mismo índice
+venv/bin/pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128   # all 3 from the same index
 venv/bin/pip install -r requirements.txt
 
-# Buscar con los embeddings ya publicados (se descargan solos, ~220 MB)
-venv/bin/python buscar.py --cancion "Jahzzar - Siesta"
-venv/bin/python buscar.py --texto "acoustic folk guitar and female vocals"
-venv/bin/python buscar.py --audio mi_cancion.mp3
+# Search with the published embeddings (they download on their own, ~220 MB)
+venv/bin/python search.py --song "Jahzzar - Siesta"
+venv/bin/python search.py --text "acoustic folk guitar and female vocals"
+venv/bin/python search.py --audio my_song.mp3
 
-# Reproducirlo todo desde cero
+# Rebuild everything from scratch
 venv/bin/python build_fma.py                    # -> tracks.parquet (~2 min)
-venv/bin/python embed.py tracks.parquet         # -> embeddings/part-*.parquet (GPU recomendada)
-venv/bin/python analizar.py tracks.parquet
+venv/bin/python embed.py tracks.parquet         # -> embeddings/part-*.parquet (a GPU is recommended)
+venv/bin/python analyze.py tracks.parquet
 
-# Demo web
+# Web demo
 venv/bin/pip install umap-learn scikit-learn onnx onnxruntime onnx-ir
-venv/bin/python preparar_web.py                 # -> web/emb.bin, web/mapa.bin, web/meta.json
-venv/bin/python exportar_web.py web/modelo      # -> web/modelo/mel.onnx + audio_q4f16.onnx (en la máquina con GPU/RAM)
+venv/bin/python prepare_web.py                  # -> web/emb.bin, web/map.bin, web/meta.json
+venv/bin/python export_web.py web/model         # -> web/model/mel.onnx + audio_q4f16.onnx (on the machine with the GPU/RAM)
 cd web && python -m http.server                 # http://localhost:8000
 ```
 
-Cualquier otro catálogo con las mismas columnas (`track_id`, `preview_url` como URL de un MP3,
-`macro_genre`, `genre_rank`…) funciona igual con `embed.py`, `buscar.py` y `analizar.py`.
+Any other catalogue with the same columns (`track_id`, `preview_url` pointing at an MP3,
+`macro_genre`, `genre_rank`…) works the same with `embed.py`, `search.py` and `analyze.py`.
 
-## Licencias
+## License
 
-- Código: MIT ([LICENSE](LICENSE)).
-- Modelo MuQ-MuLan: pesos CC BY-NC 4.0, así que los embeddings y la demo son de **uso no comercial**.
-- Metadatos de FMA: CC BY 4.0 (Defferrard et al., ISMIR 2017). Audio: la licencia CC de cada
-  artista (columna `license`); aquí no se redistribuye, se lee de la réplica pública.
+- Code: MIT ([LICENSE](LICENSE)).
+- MuQ-MuLan model: CC BY-NC 4.0 weights, so the embeddings and the demo are **non-commercial use
+  only**.
+- FMA metadata: CC BY 4.0 (Defferrard et al., ISMIR 2017). Audio: the CC license chosen by each
+  artist (column `license`); it is not redistributed here, it is read from the public mirror.

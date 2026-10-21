@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """
-Embeddings de audio con MuQ-MuLan-large (512 dim, audio y texto en el mismo espacio) para un
-tracks.parquet del proyecto (cualquier catálogo con la misma estructura).
+Audio embeddings with MuQ-MuLan-large (512 dim, audio and text in the same space) for a
+tracks.parquet of the project (any catalogue with the same structure).
 
-  venv/bin/python embed.py otro/tracks.parquet                # preview_url = URL de un MP3
-  venv/bin/python embed.py publico/tracks.parquet             # preview_url = hf://...parquet#fila (réplica de FMA)
-  venv/bin/python embed.py publico/tracks.parquet --limit 3   # prueba rápida
+  venv/bin/python embed.py other/tracks.parquet                # preview_url = URL of an MP3
+  venv/bin/python embed.py tracks.parquet                       # preview_url = hf://...parquet#row (FMA mirror)
+  venv/bin/python embed.py tracks.parquet --limit 3             # quick test
 
-Salida: <carpeta del parquet>/embeddings/part-NNNNN.parquet con (track_id, embedding FLOAT[512])
-L2-normalizado: similitud = producto escalar. Reanudable: salta lo que ya está en embeddings/ y lo
-apuntado en embeddings/fallidos.txt (previews caídas o MP3 rotos).
+Output: <folder of the parquet>/embeddings/part-NNNNN.parquet with (track_id, embedding FLOAT[512])
+L2-normalized: similarity = dot product. Resumable: it skips what is already in embeddings/ and
+whatever is listed in embeddings/failed.txt (missing previews or broken MP3s).
 """
 import argparse
 import io
@@ -26,7 +26,7 @@ import librosa
 import numpy as np
 import pyarrow as pa
 import pyarrow.parquet as pq
-os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")  # antes de importar torch
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")  # before importing torch
 import torch
 from huggingface_hub import HfFileSystem
 from muq import MuQMuLan
@@ -37,17 +37,17 @@ SR = 24_000
 
 ap = argparse.ArgumentParser()
 ap.add_argument("parquet", type=pathlib.Path)
-ap.add_argument("--out", type=pathlib.Path, help="carpeta de salida (por defecto embeddings/ junto al parquet)")
+ap.add_argument("--out", type=pathlib.Path, help="output folder (default: embeddings/ next to the parquet)")
 ap.add_argument("--limit", type=int)
 ap.add_argument("--batch", type=int, default=16,
-                help="canciones por pasada (3 ventanas de 10 s cada una); con 16 GB de VRAM, 16 va bien y 64 no cabe")
-ap.add_argument("--workers", type=int, default=16, help="descargas/decodificaciones en paralelo")
+                help="songs per pass (3 windows of 10 s each); with 16 GB of VRAM 16 fits and 64 does not")
+ap.add_argument("--workers", type=int, default=16, help="parallel downloads/decodings")
 ap.add_argument("--part-rows", type=int, default=20_000)
 a = ap.parse_args()
 
 out = a.out or a.parquet.parent / "embeddings"
 out.mkdir(parents=True, exist_ok=True)
-failed = out / "fallidos.txt"
+failed = out / "failed.txt"
 failed.touch()
 done = f"SELECT track_id FROM read_parquet('{out}/part-*.parquet')" if any(out.glob("part-*.parquet")) else "SELECT ''"
 todo = duckdb.sql(f"""
@@ -56,12 +56,12 @@ todo = duckdb.sql(f"""
       AND track_id NOT IN (SELECT column0 FROM read_csv('{failed}', header=false, columns={{'column0': 'VARCHAR'}}))
     ORDER BY macro_genre NULLS LAST, genre_rank, popularity DESC
     {f'LIMIT {a.limit}' if a.limit else ''}""").fetchall()
-print(f"{len(todo):,} canciones por procesar", flush=True)
+print(f"{len(todo):,} songs to process", flush=True)
 
 
 def sources(todo):
-    """(track_id, url o bytes del MP3). Las filas hf://fichero.parquet#n se agrupan por fichero y se
-    leen en streaming solo los row groups que hacen falta (100 canciones cada uno en la réplica de FMA)."""
+    """(track_id, url or bytes of the MP3). The rows hf://file.parquet#n are grouped by file and
+    read in streaming, fetching only the row groups that are needed (100 songs each in the FMA mirror)."""
     yield from (r for r in todo if not r[1].startswith("hf://"))
     hf = sorted((u.rsplit("#", 1)[0], int(u.rsplit("#", 1)[1]), tid) for tid, u in todo if u.startswith("hf://"))
     fs = HfFileSystem()
@@ -84,24 +84,24 @@ def load(row):
         if isinstance(src, str):
             with urllib.request.urlopen(src, timeout=30) as r:
                 src = r.read()
-        wav, _ = librosa.load(io.BytesIO(src), sr=SR, mono=True, duration=30)  # el proyecto usa fragmentos de 30 s
-        if len(wav) <= SR:  # menos de 1 s: roto
+        wav, _ = librosa.load(io.BytesIO(src), sr=SR, mono=True, duration=30)  # the project uses 30 s clips
+        if len(wav) <= SR:  # less than 1 s: broken
             return tid, None
-        # Menos de 10 s: se repite hasta llenar una ventana (MuQ solo rellena una vez y la ventana
-        # quedaría corta para apilarla con las demás).
+        # Less than 10 s: repeat it to fill a window (MuQ only pads once and the window would
+        # stay too short to be stacked with the others).
         return tid, np.tile(wav, -(-10 * SR // len(wav))) if len(wav) < 10 * SR else wav
     except Exception as e:
-        tqdm.write(f"  fallo {tid}: {e}")
+        tqdm.write(f"  failed {tid}: {e}")
         return tid, None
 
 
 dev = "cuda" if torch.cuda.is_available() else "cpu"
 model = MuQMuLan.from_pretrained(MODEL).to(dev).eval()
-print(f"modelo en {dev}", flush=True)
+print(f"model on {dev}", flush=True)
 
 ids, vecs = [], []
 part = len(list(out.glob("part-*.parquet")))
-bar = tqdm(total=len(todo), unit="canción", smoothing=0.05, dynamic_ncols=True)
+bar = tqdm(total=len(todo), unit="song", smoothing=0.05, dynamic_ncols=True)
 fails = 0
 
 
@@ -114,7 +114,7 @@ def flush():
 
 
 def prefetch(gen, size=512):
-    """Lee `gen` en otro hilo: la descarga del siguiente bloque se solapa con la GPU."""
+    """Reads `gen` in another thread: the download of the next block overlaps with the GPU."""
     q, end = queue.Queue(size), object()
 
     def fill():
@@ -132,23 +132,23 @@ def prefetch(gen, size=512):
 
 
 def latents(x):
-    """Ventanas -> embeddings. Si no cabe en la GPU, parte el lote en dos y reintenta."""
+    """Windows -> embeddings. If it does not fit in the GPU, split the batch in two and retry."""
     try:
         with torch.inference_mode(), torch.autocast(dev, dtype=torch.bfloat16, enabled=dev == "cuda"):
             return model.mulan_module.get_audio_latents(x.to(dev)).float()
     except torch.OutOfMemoryError:
         if len(x) == 1:
             raise
-    # Fuera del except: dentro, la excepción retiene los tensores del intento fallido y la GPU no se libera.
+    # Outside the except: inside, the exception keeps the tensors of the failed attempt and the GPU is not freed.
     torch.cuda.empty_cache()
-    tqdm.write(f"  sin memoria en la GPU con {len(x)} ventanas: parto el lote (baja --batch)")
+    tqdm.write(f"  out of GPU memory with {len(x)} windows: splitting the batch (lower --batch)")
     h = len(x) // 2
     return torch.cat([latents(x[:h]), latents(x[h:])])
 
 
 def run(batch):
     global ids
-    # Todas las ventanas de 10 s del lote en una sola pasada; luego la media por canción.
+    # All the 10 s windows of the batch in a single pass; then the mean per song.
     clips = [model._get_all_clips(torch.from_numpy(w)) for _, w in batch]
     lat = latents(torch.cat(clips))
     emb = torch.stack([c.mean(0) for c in lat.split([len(c) for c in clips])])
@@ -161,7 +161,7 @@ def run(batch):
 
 with ThreadPoolExecutor(a.workers) as pool:
     batch = []
-    # Por bloques: pool.map encola todo de golpe y acumularía audio si el modelo va más lento.
+    # In blocks: pool.map queues everything at once and would pile up audio if the model is slower.
     src = prefetch(sources(todo))
     rows = (r for chunk in iter(lambda: list(itertools.islice(src, a.batch * 4)), []) for r in pool.map(load, chunk))
     for tid, wav in rows:
@@ -170,7 +170,7 @@ with ThreadPoolExecutor(a.workers) as pool:
                 f.write(f"{tid}\n")
             fails += 1
             bar.update(1)
-            bar.set_postfix(fallos=fails)
+            bar.set_postfix(failed=fails)
             continue
         batch.append((tid, wav))
         if len(batch) == a.batch:
@@ -180,4 +180,4 @@ with ThreadPoolExecutor(a.workers) as pool:
         run(batch)
 flush()
 bar.close()
-print(f"hecho: {len(todo) - fails:,} embeddings en {out}, {fails:,} fallos (en {failed.name})")
+print(f"done: {len(todo) - fails:,} embeddings in {out}, {fails:,} failures (in {failed.name})")
