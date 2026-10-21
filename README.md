@@ -75,8 +75,8 @@ preview (`ok` or the HTTP code of a dead one) in `work/previews.tsv`, also uploa
 it is resumable. Then `embed.py --bucket` reads the audio from there instead of from Spotify.
 
 ```bash
-uv run download_previews.py privado/tracks_top15000.parquet --bucket PGSCOM/spotify-previews
-venv/bin/python embed.py privado/tracks_top15000.parquet --bucket PGSCOM/spotify-previews
+uv run download_previews.py privado/tracks_recortado.parquet --bucket PGSCOM/spotify-previews
+venv/bin/python embed.py privado/tracks_recortado.parquet --bucket PGSCOM/spotify-previews
 ```
 
 To run it as a worker on another machine (two tokens: one that reads the private parquet and one

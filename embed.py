@@ -6,7 +6,7 @@ tracks.parquet of the project (any catalogue with the same structure).
   venv/bin/python embed.py other/tracks.parquet                # preview_url = URL of an MP3
   venv/bin/python embed.py tracks.parquet                       # preview_url = hf://...parquet#row (FMA mirror)
   venv/bin/python embed.py tracks.parquet --limit 3             # quick test
-  venv/bin/python embed.py privado/tracks_top15000.parquet --bucket PGSCOM/spotify-previews
+  venv/bin/python embed.py privado/tracks_recortado.parquet --bucket PGSCOM/spotify-previews
       # Spotify previews already copied by download_previews.py: <hash>.mp3 at the bucket root
       # (only those its log.tsv marks ok; the rest wait for a later run instead of failing)
 

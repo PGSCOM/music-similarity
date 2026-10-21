@@ -7,8 +7,8 @@ Spotify previews (30 s MP3s) -> a public Hugging Face bucket, one download per s
 touching the disk: each MP3 is kept in memory and uploaded in batches as <hash>.mp3 at the bucket
 root (<hash> is the one in https://p.scdn.co/mp3-preview/<hash>). The parquet is only read.
 
-  uv run download_previews.py privado/tracks_top15000.parquet --bucket PGSCOM/spotify-previews
-  uv run download_previews.py privado/tracks_top15000.parquet --limit 3      # quick test
+  uv run download_previews.py privado/tracks_recortado.parquet --bucket PGSCOM/spotify-previews
+  uv run download_previews.py privado/tracks_recortado.parquet --limit 3      # quick test
 
 (`uv run` because the venv's huggingface_hub is 0.x, which has no buckets.)
 
