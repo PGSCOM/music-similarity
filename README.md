@@ -66,6 +66,19 @@ venv/bin/python export_web.py web/model         # -> web/model/mel.onnx + audio_
 cd web && python -m http.server                 # http://localhost:8000
 ```
 
+### Spotify previews
+
+`download_previews.py` copies the 30 s Spotify previews of a `tracks*.parquet` into a public
+Hugging Face bucket, at 1 download/s and without writing the MP3s to disk (they go from memory
+to the bucket in batches, as `<hash>.mp3` at its root). It only reads the parquet and logs every
+preview (`ok` or the HTTP code of a dead one) in `work/previews.tsv`, also uploaded as `log.tsv`;
+it is resumable. Then `embed.py --bucket` reads the audio from there instead of from Spotify.
+
+```bash
+uv run download_previews.py privado/tracks_top15000.parquet --bucket PGSCOM/spotify-previews
+venv/bin/python embed.py privado/tracks_top15000.parquet --bucket PGSCOM/spotify-previews
+```
+
 Any other catalogue with the same columns (`track_id`, `preview_url` pointing at an MP3,
 `macro_genre`, `genre_rank`…) works the same with `embed.py`, `search.py` and `analyze.py`.
 

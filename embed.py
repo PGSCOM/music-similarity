@@ -6,6 +6,9 @@ tracks.parquet of the project (any catalogue with the same structure).
   venv/bin/python embed.py other/tracks.parquet                # preview_url = URL of an MP3
   venv/bin/python embed.py tracks.parquet                       # preview_url = hf://...parquet#row (FMA mirror)
   venv/bin/python embed.py tracks.parquet --limit 3             # quick test
+  venv/bin/python embed.py privado/tracks_top15000.parquet --bucket PGSCOM/spotify-previews
+      # Spotify previews already copied by download_previews.py: <hash>.mp3 at the bucket root
+      # (only those its log.tsv marks ok; the rest wait for a later run instead of failing)
 
 Output: <folder of the parquet>/embeddings/part-NNNNN.parquet with (track_id, embedding FLOAT[512])
 L2-normalized: similarity = dot product. Resumable: it skips what is already in embeddings/ and
@@ -43,15 +46,23 @@ ap.add_argument("--batch", type=int, default=16,
                 help="songs per pass (3 windows of 10 s each); with 16 GB of VRAM 16 fits and 64 does not")
 ap.add_argument("--workers", type=int, default=16, help="parallel downloads/decodings")
 ap.add_argument("--part-rows", type=int, default=20_000)
+ap.add_argument("--bucket", help="public HF bucket with the Spotify previews (see download_previews.py)")
 a = ap.parse_args()
 
 out = a.out or a.parquet.parent / "embeddings"
 out.mkdir(parents=True, exist_ok=True)
 failed = out / "failed.txt"
 failed.touch()
+tracks = f"read_parquet('{a.parquet}')"
+if a.bucket:
+    base = f"https://huggingface.co/buckets/{a.bucket}/resolve"
+    tracks = f"""(SELECT * REPLACE ('{base}/' || h || '.mp3' AS preview_url) FROM (
+        SELECT *, regexp_extract(preview_url, 'mp3-preview/([0-9a-f]+)', 1) AS h FROM {tracks})
+        JOIN read_csv('{base}/log.tsv', header=false, delim='\t', names=['h', 'status', 'time']) USING (h)
+        WHERE status = 'ok')"""
 done = f"SELECT track_id FROM read_parquet('{out}/part-*.parquet')" if any(out.glob("part-*.parquet")) else "SELECT ''"
 todo = duckdb.sql(f"""
-    SELECT track_id, preview_url FROM read_parquet('{a.parquet}')
+    SELECT track_id, preview_url FROM {tracks}
     WHERE preview_url IS NOT NULL AND track_id NOT IN ({done})
       AND track_id NOT IN (SELECT column0 FROM read_csv('{failed}', header=false, columns={{'column0': 'VARCHAR'}}))
     ORDER BY macro_genre NULLS LAST, genre_rank, popularity DESC
