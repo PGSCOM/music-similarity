@@ -79,6 +79,15 @@ uv run download_previews.py privado/tracks_top15000.parquet --bucket PGSCOM/spot
 venv/bin/python embed.py privado/tracks_top15000.parquet --bucket PGSCOM/spotify-previews
 ```
 
+To run it as a worker on another machine (two tokens: one that reads the private parquet and one
+that writes the public bucket, in `worker/.env`, which is not committed):
+
+```bash
+cd worker && cp .env.example .env    # fill it in
+docker compose run --rm worker --limit 30   # test
+docker compose up -d --build && docker compose logs -f
+```
+
 Any other catalogue with the same columns (`track_id`, `preview_url` pointing at an MP3,
 `macro_genre`, `genre_rank`…) works the same with `embed.py`, `search.py` and `analyze.py`.
 

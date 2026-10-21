@@ -1,0 +1,6 @@
+services:
+  worker:
+    build: {context: .., dockerfile: worker/Dockerfile}
+    env_file: .env
+    volumes: ["./data:/data"]  # source parquet (~630 MB) + previews.tsv log; the MP3s never touch the disk
+    restart: unless-stopped

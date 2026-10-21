@@ -6,3 +6,5 @@ __pycache__/
 web/*.bin
 web/meta.json
 web/model/
+worker/.env
+worker/data/
