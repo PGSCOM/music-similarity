@@ -8,7 +8,6 @@ description: *"sad piano ballad"*, *"chill lo-fi hip hop beat"*.
   (a static page: upload or record an audio file and the model runs in your browser with WebGPU)
 - **Data:** [huggingface.co/datasets/PGSCOM/fma-muq-mulan](https://huggingface.co/datasets/PGSCOM/fma-muq-mulan)
   (106,574 songs from the Free Music Archive + their embeddings)
-- **How it works, explained:** [BLOG.md](BLOG.md)
 - **How to rebuild and publish it:** [PUBLISHING.md](PUBLISHING.md)
 
 ## How it works
